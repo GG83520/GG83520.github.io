@@ -1379,27 +1379,34 @@ async function loadSaisieFromSheets(jour) {
       callAS({ action: 'getSaisie', jour }),
       callAS({ action: 'getCommentaires', jour }),
     ]);
-    if (jsonSaisie.ok && jsonSaisie.data && jsonSaisie.data.length) {
+    hideLoadingBanner();
+    if (!jsonSaisie.ok) {
+      console.warn('getSaisie error:', jsonSaisie.error);
+      return; // silencieux — pas d'erreur affichée si Sheets vide
+    }
+    if (jsonSaisie.data && jsonSaisie.data.length) {
       state[jour] = jsonSaisie.data.map(s => ({
         secteur:      s.secteur,
         referant:     s.referant,
         hmepSect:     s.hmepSect,
         collapsed:    false,
-        commentaires: jsonComm.ok && jsonComm.data[s.secteur] ? jsonComm.data[s.secteur] : ['','',''],
+        commentaires: jsonComm.ok && jsonComm.data && jsonComm.data[s.secteur]
+                        ? jsonComm.data[s.secteur] : ['','',''],
         rows:         s.rows.map(r => ({ ...r })),
       }));
       renderAll();
       toast(`Saisie ${jour} chargée depuis Sheets ✓`);
+    } else {
+      // Sheets vide pour ce jour — normal, pas d'erreur
+      console.log(`Sheets : aucune saisie pour ${jour}`);
     }
-    hideLoadingBanner();
   } catch(e) {
     hideLoadingBanner();
-    toast('Erreur chargement Sheets', 'warn');
-    console.warn('Sheets load error:', e);
+    console.warn('Sheets load error:', e); // silencieux — on garde le localStorage
   }
 }
 
-// Sauvegarde vers Sheets via JSONP (+ localStorage en backup)
+// Sauvegarde vers Sheets via JSONP — un secteur à la fois pour rester sous la limite URL
 async function saveToSheets() {
   try { localStorage.setItem('ra2026_saisie', JSON.stringify(state)); } catch(e) {}
   if (!SHEETS_ENABLED) { toast('Brouillon local sauvegardé ✓'); return; }
@@ -1409,27 +1416,32 @@ async function saveToSheets() {
 
   try {
     const secteurs = state[currentJour] || [];
+    let totalUpdated = 0, totalInserted = 0;
 
-    // 1. Sauvegarde lignes PS
-    const jsonSaisie = await callAS({
-      action: 'saveSaisie',
-      jour: currentJour,
-      data: JSON.stringify(secteurs),
-    });
-    if (!jsonSaisie.ok) throw new Error(jsonSaisie.error);
-
-    // 2. Sauvegarde commentaires (séquentiel pour éviter surcharge)
-    for (const s of secteurs.filter(s => s.commentaires && s.commentaires.some(Boolean))) {
-      await callAS({
-        action: 'saveCommentaires',
+    // Sauvegarde secteur par secteur (évite la limite de longueur d'URL)
+    for (const s of secteurs) {
+      // 1. Lignes PS du secteur
+      const jsonSaisie = await callAS({
+        action: 'saveSaisie',
         jour: currentJour,
-        secteur: s.secteur,
-        data: JSON.stringify(s.commentaires),
+        data: JSON.stringify([s]), // un seul secteur à la fois
       });
+      if (!jsonSaisie.ok) throw new Error(jsonSaisie.error);
+      totalUpdated  += jsonSaisie.data.updated  || 0;
+      totalInserted += jsonSaisie.data.inserted || 0;
+
+      // 2. Commentaires du secteur
+      if (s.commentaires && s.commentaires.some(Boolean)) {
+        await callAS({
+          action: 'saveCommentaires',
+          jour: currentJour,
+          secteur: s.secteur,
+          data: JSON.stringify(s.commentaires),
+        });
+      }
     }
 
-    const { updated, inserted } = jsonSaisie.data;
-    toast(`Sheets mis à jour ✓  (${updated} modifiés, ${inserted} nouveaux)`);
+    toast(`Sheets mis à jour ✓  (${totalUpdated} modifiés, ${totalInserted} nouveaux)`);
   } catch(e) {
     toast('Erreur envoi Sheets — brouillon local conservé', 'err');
     console.error('Sheets save error:', e);
