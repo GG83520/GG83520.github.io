@@ -1311,13 +1311,34 @@ function closeReport() {
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
 const SHEETS_ENABLED  = APPS_SCRIPT_URL !== 'REMPLACER_PAR_URL_APPS_SCRIPT';
 
+// ── Appel Apps Script via JSONP (contourne les limitations CORS/redirect) ──
+function callAS(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const timeout = setTimeout(() => {
+      delete window[cbName];
+      reject(new Error('Timeout'));
+    }, 15000);
+    window[cbName] = (data) => {
+      clearTimeout(timeout);
+      delete window[cbName];
+      resolve(data);
+    };
+    const qs = new URLSearchParams({ ...params, callback: cbName });
+    const s  = document.createElement('script');
+    s.src    = `${APPS_SCRIPT_URL}?${qs}`;
+    s.onerror = () => { clearTimeout(timeout); delete window[cbName]; reject(new Error('Script error')); };
+    document.head.appendChild(s);
+    setTimeout(() => s.remove(), 20000);
+  });
+}
+
 // Charge les référentiels depuis Sheets au démarrage
 async function loadReferentiels() {
-  if (!SHEETS_ENABLED) return; // mode offline → données statiques
+  if (!SHEETS_ENABLED) return;
   try {
     showLoadingBanner('Chargement des référentiels depuis Google Sheets…');
-    const res  = await fetch(`${APPS_SCRIPT_URL}?action=getReferentiels`);
-    const json = await res.json();
+    const json = await callAS({ action: 'getReferentiels' });
     if (!json.ok) throw new Error(json.error);
     const d = json.data;
 
@@ -1327,7 +1348,6 @@ async function loadReferentiels() {
 
     REFERANTS.length = 0;
     d.referants && d.referants.forEach(r => REFERANTS.push(r));
-    // Secteurs → reconstruit PS_SECTEUR depuis les PS reçus
     if (d.ps && d.ps.length) {
       Object.keys(PS_SECTEUR).forEach(k => delete PS_SECTEUR[k]);
       d.ps.forEach(p => {
@@ -1335,14 +1355,12 @@ async function loadReferentiels() {
         PS_SECTEUR[p.secteur].push(`${p.num} - ${p.lieudit}`);
       });
     }
-    // Courses
     if (d.courses && d.courses.length) {
       Object.keys(COURSES).forEach(k => delete COURSES[k]);
       d.courses.forEach(c => {
         COURSES[c.nom] = { jours: c.jours, ps: c.ps, couleur: c.couleur };
       });
     }
-
     hideLoadingBanner();
     toast('Référentiels chargés depuis Sheets ✓');
   } catch(e) {
@@ -1357,14 +1375,11 @@ async function loadSaisieFromSheets(jour) {
   if (!SHEETS_ENABLED) return;
   try {
     showLoadingBanner(`Chargement saisie ${jour} depuis Google Sheets…`);
-    const [resSaisie, resComm] = await Promise.all([
-      fetch(`${APPS_SCRIPT_URL}?action=getSaisie&jour=${jour}`),
-      fetch(`${APPS_SCRIPT_URL}?action=getCommentaires&jour=${jour}`),
+    const [jsonSaisie, jsonComm] = await Promise.all([
+      callAS({ action: 'getSaisie', jour }),
+      callAS({ action: 'getCommentaires', jour }),
     ]);
-    const [jsonSaisie, jsonComm] = await Promise.all([resSaisie.json(), resComm.json()]);
-
     if (jsonSaisie.ok && jsonSaisie.data && jsonSaisie.data.length) {
-      // Injecte les données Sheets dans le state (écrase le localStorage pour ce jour)
       state[jour] = jsonSaisie.data.map(s => ({
         secteur:      s.secteur,
         referant:     s.referant,
@@ -1384,12 +1399,9 @@ async function loadSaisieFromSheets(jour) {
   }
 }
 
-// Sauvegarde vers Sheets (+ localStorage en backup)
-// Utilise GET avec données encodées — POST bloqué depuis fichier local
+// Sauvegarde vers Sheets via JSONP (+ localStorage en backup)
 async function saveToSheets() {
-  // Toujours sauvegarder en local d'abord
   try { localStorage.setItem('ra2026_saisie', JSON.stringify(state)); } catch(e) {}
-
   if (!SHEETS_ENABLED) { toast('Brouillon local sauvegardé ✓'); return; }
 
   const btn = document.querySelector('.btn-pdf');
@@ -1398,29 +1410,23 @@ async function saveToSheets() {
   try {
     const secteurs = state[currentJour] || [];
 
-    // 1. Sauvegarde lignes PS via GET
-    const paramsSaisie = new URLSearchParams({
+    // 1. Sauvegarde lignes PS
+    const jsonSaisie = await callAS({
       action: 'saveSaisie',
       jour: currentJour,
       data: JSON.stringify(secteurs),
     });
-    const resSaisie = await fetch(`${APPS_SCRIPT_URL}?${paramsSaisie}`);
-    const jsonSaisie = await resSaisie.json();
     if (!jsonSaisie.ok) throw new Error(jsonSaisie.error);
 
-    // 2. Sauvegarde commentaires via GET
-    const commPromises = secteurs
-      .filter(s => s.commentaires && s.commentaires.some(Boolean))
-      .map(s => {
-        const p = new URLSearchParams({
-          action: 'saveCommentaires',
-          jour: currentJour,
-          secteur: s.secteur,
-          data: JSON.stringify(s.commentaires),
-        });
-        return fetch(`${APPS_SCRIPT_URL}?${p}`);
+    // 2. Sauvegarde commentaires (séquentiel pour éviter surcharge)
+    for (const s of secteurs.filter(s => s.commentaires && s.commentaires.some(Boolean))) {
+      await callAS({
+        action: 'saveCommentaires',
+        jour: currentJour,
+        secteur: s.secteur,
+        data: JSON.stringify(s.commentaires),
       });
-    await Promise.all(commPromises);
+    }
 
     const { updated, inserted } = jsonSaisie.data;
     toast(`Sheets mis à jour ✓  (${updated} modifiés, ${inserted} nouveaux)`);
@@ -1586,4 +1592,3 @@ document.getElementById('coursesOverlay').addEventListener('click', function(e) 
 </script>
 </body>
 </html>
-
