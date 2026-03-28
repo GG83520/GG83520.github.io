@@ -426,10 +426,27 @@
 // ============================================================
 const JOUR_COURANT = 'J1'; // ← À mettre à jour chaque jour (J1…J5)
 const CODE_ACCES   = '83107';
-
-// ← Même URL que dans RA2026_SAISIE.html
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
-const SHEETS_ENABLED  = APPS_SCRIPT_URL !== 'REMPLACER_PAR_URL_APPS_SCRIPT';
+const SHEETS_ENABLED  = true;
+
+// ── Appel Apps Script via JSONP ───────────────────────────────────────────────
+function callAS(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const timeout = setTimeout(() => {
+      delete window[cbName]; reject(new Error('Timeout'));
+    }, 15000);
+    window[cbName] = (data) => {
+      clearTimeout(timeout); delete window[cbName]; resolve(data);
+    };
+    const qs = new URLSearchParams({ ...params, callback: cbName });
+    const s  = document.createElement('script');
+    s.src    = `${APPS_SCRIPT_URL}?${qs}`;
+    s.onerror = () => { clearTimeout(timeout); delete window[cbName]; reject(new Error('Script error')); };
+    document.head.appendChild(s);
+    setTimeout(() => s.remove(), 20000);
+  });
+}
 
 const JOURS = [
   { id:'J1', label:'J1', date:'MERCREDI 07/10/2026' },
@@ -562,18 +579,13 @@ async function acceder() {
     return;
   }
 
-  // Mode Sheets : interroge Apps Script directement
+  // Mode Sheets : interroge Apps Script via JSONP
   if (SHEETS_ENABLED) {
     const btn = document.querySelector('.btn-login');
     btn.textContent = '⏳ Chargement…'; btn.disabled = true;
     errEl.textContent = '';
     try {
-      const url = `${APPS_SCRIPT_URL}?action=getFichePS&ps=${psVal}&jour=${JOUR_COURANT}`;
-      const res  = await fetch(url, { redirect: 'follow' });
-      const text = await res.text();
-      // Apps Script renvoie parfois du HTML d'erreur — on vérifie
-      if (!text.startsWith('{')) throw new Error('Réponse inattendue du serveur');
-      const json = JSON.parse(text);
+      const json = await callAS({ action: 'getFichePS', ps: psVal, jour: JOUR_COURANT });
       if (!json.ok) throw new Error(json.error);
       if (!json.data) {
         errEl.textContent = `PS ${psVal} non trouvé pour ${JOUR_COURANT} — contacte ton référant`;
@@ -584,12 +596,11 @@ async function acceder() {
     } catch(e) {
       console.error('Fiche fetch error:', e);
       errEl.textContent = 'Connexion impossible — mode hors-ligne activé';
-      afficherFiche(psVal, JOUR_COURANT); // fallback données locales
+      afficherFiche(psVal, JOUR_COURANT);
     } finally {
       btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
     }
   } else {
-    // Mode hors-ligne : données locales
     afficherFiche(psVal, JOUR_COURANT);
   }
 }
