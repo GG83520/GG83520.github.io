@@ -537,6 +537,69 @@
     body { background: #fff; color: #000; }
     .secteur-header { background: #eee; }
   }
+
+  /* ========= FICHE SECTEUR ========= */
+  .fiche-sect-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    z-index: 200; display: none; align-items: flex-start; justify-content: center;
+    padding: 20px; overflow-y: auto;
+  }
+  .fiche-sect-overlay.active { display: flex; }
+  .fiche-sect-panel {
+    background: #fff; color: #111;
+    border-radius: 10px; width: 100%; max-width: 900px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    font-family: Arial, sans-serif; font-size: 13px;
+    margin: auto;
+  }
+  .fiche-sect-controls {
+    background: var(--dark2); border-radius: 10px 10px 0 0;
+    padding: 12px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .fiche-sect-controls label {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 12px;
+    font-weight: 700; letter-spacing: 1px; color: var(--texte2); text-transform: uppercase;
+  }
+  .fiche-sect-controls select {
+    background: #f0f0f0; border: 1px solid #bbb; color: #111;
+    border-radius: 4px; padding: 5px 10px;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 600;
+  }
+  .fiche-sect-body { padding: 22px 26px; }
+  .fs-titre { font-size: 22px; font-weight: 900; text-transform: uppercase; color: #C0392B; letter-spacing: 2px; }
+  .fs-sous-titre { font-size: 13px; color: #555; margin-bottom: 16px; }
+  .fs-section { margin-bottom: 14px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+  .fs-section-header { background: #1A3A5C; color: #fff; padding: 7px 14px; font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .fs-section-body { padding: 10px 14px; }
+  .fs-info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 4px; }
+  .fs-info-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .fs-info-val { font-size: 15px; font-weight: 700; color: #111; }
+  .fs-info-val.rouge { color: #C0392B; }
+  .fs-info-val.vert  { color: #1E8449; }
+  .fs-info-val.bleu  { color: #1A5276; }
+  .fs-comm-list { list-style: none; padding: 0; margin: 0; }
+  .fs-comm-list li { padding: 4px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .fs-comm-list li:last-child { border-bottom: none; }
+  .fs-comm-list li::before { content: '▸ '; color: #E67E22; font-weight: 700; }
+  .fs-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
+  .fs-table th { background: #2C3E50; color: #fff; padding: 5px 7px; text-align: left; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+  .fs-table td { padding: 5px 7px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .fs-table tr:nth-child(even) td { background: #F8F9FA; }
+  .fs-radio-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin: 1px; }
+  .fs-radio-pill.com { background: #D6EAF8; color: #1A5276; }
+  .fs-radio-pill.crs { background: #FADBD8; color: #922B21; }
+  .fs-radio-pill.cmv { background: #D5F5E3; color: #1E8449; }
+  .fs-course-tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; margin: 1px; background: #E8DAEF; color: #6C3483; }
+  .fs-empty { color: #aaa; font-style: italic; text-align: center; padding: 20px; }
+  .btn-fiche-print { background: #C0392B; color: #fff; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; padding: 10px 24px; border: none; border-radius: 6px; cursor: pointer; margin-top: 16px; }
+  .btn-fiche-print:hover { background: #E74C3C; }
+  @media print {
+    .fiche-sect-controls, .btn-fiche-print { display: none !important; }
+    .fiche-sect-overlay { position: static !important; padding: 0; background: none !important; display: block !important; }
+    .fiche-sect-panel { box-shadow: none; border-radius: 0; max-width: 100%; }
+    body > *:not(.fiche-sect-overlay) { display: none !important; }
+    .fiche-sect-overlay * { display: block !important; }
+  }
 </style>
 </head>
 <body>
@@ -550,6 +613,7 @@
       <span class="badge-conflicts" id="badgeConflicts">⚠ Conflits</span>
       <button class="btn-action btn-add-secteur" onclick="addSecteur()">+ Secteur</button>
       <button class="btn-action" style="background:#6C3483;color:#fff" onclick="openCourses()">🏁 Courses</button>
+      <button class="btn-action" style="background:#E67E22;color:#fff" onclick="openFicheSecteur()">📄 Fiche Secteur</button>
       <button class="btn-action btn-report" onclick="openReport()">📋 Report Jx</button>
       <button class="btn-action btn-pdf" onclick="saveDraft()">💾 Sauvegarder</button>
     </div>
@@ -618,6 +682,23 @@
       <button class="btn-close" onclick="closeCourses()">✕</button>
     </div>
     <div class="courses-panel-body" id="coursesPanelBody"></div>
+  </div>
+</div>
+
+<!-- FICHE SECTEUR OVERLAY -->
+<div class="fiche-sect-overlay" id="ficheSectOverlay">
+  <div class="fiche-sect-panel">
+    <div class="fiche-sect-controls">
+      <label>Secteur</label>
+      <select id="fsSecteurSelect" onchange="renderFicheSecteur()"></select>
+      <label style="margin-left:8px">Jour</label>
+      <select id="fsJourSelect" onchange="renderFicheSecteur()"></select>
+      <button class="btn-fiche-print" onclick="window.print()">🖨 Imprimer</button>
+      <button class="btn-close" onclick="closeFicheSecteur()" style="margin-left:auto">✕</button>
+    </div>
+    <div class="fiche-sect-body" id="ficheSectBody">
+      <div class="fs-empty">Sélectionner un secteur et un jour</div>
+    </div>
   </div>
 </div>
 
@@ -1306,6 +1387,223 @@ function closeReport() {
 }
 
 // ========================================================
+// FICHE SECTEUR
+// ========================================================
+function openFicheSecteur() {
+  // Remplir les selects
+  const selSect = document.getElementById('fsSecteurSelect');
+  const selJour = document.getElementById('fsJourSelect');
+
+  // Secteurs présents dans le state du jour courant + tous secteurs connus
+  const secteursDispos = [...new Set([
+    ...SECTEURS,
+    ...(state[currentJour] || []).map(s => s.secteur)
+  ])];
+  selSect.innerHTML = secteursDispos.map(s =>
+    `<option value="${s}">${s}</option>`
+  ).join('');
+  // Pré-sélectionner le premier secteur du jour courant si dispo
+  const premierSect = (state[currentJour] || [])[0];
+  if (premierSect) selSect.value = premierSect.secteur;
+
+  selJour.innerHTML = JOURS.map(j =>
+    `<option value="${j.id}" ${j.id === currentJour ? 'selected' : ''}>${j.label} — ${j.date}</option>`
+  ).join('');
+
+  document.getElementById('ficheSectOverlay').classList.add('active');
+  renderFicheSecteur();
+}
+
+function closeFicheSecteur() {
+  document.getElementById('ficheSectOverlay').classList.remove('active');
+}
+
+function renderFicheSecteur() {
+  const secteurNom = document.getElementById('fsSecteurSelect').value;
+  const jourId     = document.getElementById('fsJourSelect').value;
+  const body       = document.getElementById('ficheSectBody');
+  const jourInfo   = JOURS.find(j => j.id === jourId);
+
+  // Trouver les données du secteur pour ce jour
+  const sectData = (state[jourId] || []).find(s => s.secteur === secteurNom);
+
+  if (!sectData) {
+    body.innerHTML = `<div class="fs-empty">Aucune saisie pour le secteur <strong>${secteurNom}</strong> en ${jourId}.</div>`;
+    return;
+  }
+
+  const rows = sectData.rows.filter(r => r.ps);
+  const comms = (sectData.commentaires || []).filter(Boolean);
+
+  // ── Totaux secteur ───────────────────────────────────────────────────────
+  let totalCOM=0, totalCRS=0, totalCMV=0, totalBenv=0;
+  const vehs = new Set();
+  rows.forEach(r => {
+    totalCOM += (r.com||0); totalCRS += (r.crs||0); totalCMV += (r.cmv||0);
+    [r.b1,r.b2,r.b3,r.b4,r.b5].forEach(b => { if(b) totalBenv++; });
+    if(r.vehA) vehs.add(r.vehA);
+    if(r.vehB) vehs.add(r.vehB);
+  });
+
+  // ── Helper courses pour un PS ────────────────────────────────────────────
+  function coursesForPS(psStr, jour) {
+    const nums = (psStr||'').match(/\d+/g)?.map(Number) || [];
+    return Object.entries(COURSES)
+      .filter(([,c]) => Array.isArray(c.ps) && nums.some(n => c.ps.includes(n)))
+      .map(([nom]) => nom);
+  }
+
+  // ── HTML ─────────────────────────────────────────────────────────────────
+  let html = `
+    <div class="fs-titre">SECTEUR ${secteurNom}</div>
+    <div class="fs-sous-titre">
+      ROC D'AZUR 2026 — ${jourInfo.date} (${jourId})
+    </div>
+
+    <!-- IDENTIFICATION -->
+    <div class="fs-section">
+      <div class="fs-section-header">📍 Identification</div>
+      <div class="fs-section-body">
+        <div class="fs-info-grid">
+          <div class="fs-info-item">
+            <div class="fs-info-label">Secteur</div>
+            <div class="fs-info-val bleu">${secteurNom}</div>
+          </div>
+          <div class="fs-info-item">
+            <div class="fs-info-label">Référant</div>
+            <div class="fs-info-val">${sectData.referant || '—'}</div>
+          </div>
+          <div class="fs-info-item">
+            <div class="fs-info-label">H MeP Secteur</div>
+            <div class="fs-info-val rouge">${sectData.hmepSect || '—'}</div>
+          </div>
+          <div class="fs-info-item">
+            <div class="fs-info-label">Jour</div>
+            <div class="fs-info-val">${jourInfo.date}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECAP CHIFFRES -->
+    <div class="fs-section">
+      <div class="fs-section-header">📊 Récapitulatif</div>
+      <div class="fs-section-body">
+        <div class="fs-info-grid">
+          <div class="fs-info-item">
+            <div class="fs-info-label">PS actifs</div>
+            <div class="fs-info-val rouge">${rows.length}</div>
+          </div>
+          <div class="fs-info-item">
+            <div class="fs-info-label">Bénévoles</div>
+            <div class="fs-info-val vert">${totalBenv}</div>
+          </div>
+          <div class="fs-info-item">
+            <div class="fs-info-label">Véhicules</div>
+            <div class="fs-info-val bleu">${vehs.size}</div>
+          </div>
+          <div class="fs-info-item">
+            <div class="fs-info-label">Radios</div>
+            <div class="fs-info-val" style="font-size:12px">
+              ${totalCOM ? `<span style="color:#1A5276;font-weight:700">${totalCOM} COM</span> ` : ''}
+              ${totalCRS ? `<span style="color:#922B21;font-weight:700">${totalCRS} CRS</span> ` : ''}
+              ${totalCMV ? `<span style="color:#1E8449;font-weight:700">${totalCMV} CMV</span>` : ''}
+              ${!totalCOM && !totalCRS && !totalCMV ? '—' : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${comms.length ? `
+    <!-- COMMENTAIRES REFERANT -->
+    <div class="fs-section">
+      <div class="fs-section-header">📝 Commentaires pour le référant</div>
+      <div class="fs-section-body">
+        <ul class="fs-comm-list">
+          ${comms.map(c => `<li>${c}</li>`).join('')}
+        </ul>
+      </div>
+    </div>` : ''}
+
+    <!-- POINTS SIGNALEURS -->
+    <div class="fs-section">
+      <div class="fs-section-header">🗺 Points Signaleurs (${rows.length})</div>
+      <div class="fs-section-body" style="padding:0">`;
+
+  if (rows.length === 0) {
+    html += `<div class="fs-empty">Aucun PS saisi pour ce secteur ce jour.</div>`;
+  } else {
+    html += `
+        <table class="fs-table">
+          <thead>
+            <tr>
+              <th>PS / Lieu-dit</th>
+              <th>H MeP</th>
+              <th>Véh A</th>
+              <th>Véh B</th>
+              <th>Bénévoles</th>
+              <th>Radios</th>
+              <th>Course(s)</th>
+              <th>Km Ravit.</th>
+              <th>Km Atelier</th>
+              <th>Observations</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+    rows.forEach(r => {
+      const benvs = [r.b1,r.b2,r.b3,r.b4,r.b5].filter(Boolean).join('<br>');
+      const radios = [
+        r.com ? `<span class="fs-radio-pill com">${r.com} COM</span>` : '',
+        r.crs ? `<span class="fs-radio-pill crs">${r.crs} CRS</span>` : '',
+        r.cmv ? `<span class="fs-radio-pill cmv">${r.cmv} CMV</span>` : '',
+      ].join('');
+      const courses = coursesForPS(r.ps, jourId)
+        .map(c => `<span class="fs-course-tag">${c}</span>`).join('');
+      const kmRavit  = r.kmRavit  || '<span style="color:#ccc">—</span>';
+      const kmAtelier = r.kmAtelier || '<span style="color:#ccc">—</span>';
+
+      html += `
+            <tr>
+              <td><strong>${r.ps}</strong></td>
+              <td><strong style="color:#C0392B">${r.hmep || '—'}</strong></td>
+              <td>${r.vehA || '—'}</td>
+              <td>${r.vehB || '—'}</td>
+              <td>${benvs || '—'}</td>
+              <td>${radios || '—'}</td>
+              <td>${courses || '—'}</td>
+              <td>${kmRavit}</td>
+              <td>${kmAtelier}</td>
+              <td style="font-size:11px;color:#555">${r.obs || ''}</td>
+            </tr>`;
+    });
+
+    html += `</tbody></table>`;
+  }
+
+  html += `
+      </div>
+    </div>
+
+    <!-- MISSIONS -->
+    <div class="fs-section">
+      <div class="fs-section-header">🚨 Missions & Urgences</div>
+      <div class="fs-section-body" style="font-size:12px;color:#333;line-height:1.7">
+        • Guider les coureurs sur le parcours<br>
+        • Signaler les incidents sur le parcours<br>
+        • <strong>En cas d'accident : contacter le PC ROC sur RADIO COURSE</strong>
+      </div>
+    </div>
+
+    <button class="btn-fiche-print" onclick="window.print()">🖨 Imprimer cette fiche</button>
+  `;
+
+  body.innerHTML = html;
+}
+
+
+// ========================================================
 // APPS SCRIPT — Connexion Google Sheets
 // Remplacer l'URL après déploiement (étape 4 du guide)
 // ========================================================
@@ -1616,7 +1914,9 @@ document.getElementById('reportOverlay').addEventListener('click', function(e) {
 document.getElementById('coursesOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeCourses();
 });
+document.getElementById('ficheSectOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeFicheSecteur();
+});
 </script>
 </body>
 </html>
-
