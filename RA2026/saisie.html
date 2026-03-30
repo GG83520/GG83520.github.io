@@ -532,10 +532,42 @@
   }
   .course-summary strong { color: var(--texte); }
   @media print {
-    header, .date-bar .stats-bar, .secteur-actions,
-    .btn-add-ps, .btn-del-row, .report-overlay { display: none !important; }
+    /* Par défaut : impression saisie normale */
+    header, .date-bar, .stats-bar, .secteur-actions,
+    .btn-add-ps, .btn-del-row, .report-overlay,
+    .courses-overlay, .fiche-sect-overlay { display: none !important; }
     body { background: #fff; color: #000; }
     .secteur-header { background: #eee; }
+
+    /* Mode impression Fiche Secteur */
+    body.print-fiche-sect header,
+    body.print-fiche-sect main,
+    body.print-fiche-sect .report-overlay,
+    body.print-fiche-sect .courses-overlay { display: none !important; }
+    body.print-fiche-sect .fiche-sect-overlay {
+      display: block !important; position: static !important;
+      padding: 0; background: none !important; overflow: visible !important;
+    }
+    body.print-fiche-sect .fiche-sect-panel {
+      box-shadow: none; border-radius: 0; max-width: 100%;
+    }
+    body.print-fiche-sect .fiche-sect-controls,
+    body.print-fiche-sect .btn-fiche-print,
+    body.print-fiche-sect .btn-close { display: none !important; }
+    body.print-fiche-sect .fs-section-header { background: #2C3E50 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body.print-fiche-sect .fs-table th { background: #2C3E50 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* Mode impression Report Jx */
+    body.print-report header,
+    body.print-report main,
+    body.print-report .fiche-sect-overlay,
+    body.print-report .courses-overlay { display: none !important; }
+    body.print-report .report-overlay {
+      display: block !important; position: static !important;
+      padding: 0; background: none !important; overflow: visible !important;
+    }
+    body.print-report .report-header .btn-close,
+    body.print-report .btn-print-report { display: none !important; }
   }
 
   /* ========= FICHE SECTEUR ========= */
@@ -593,13 +625,6 @@
   .fs-empty { color: #aaa; font-style: italic; text-align: center; padding: 20px; }
   .btn-fiche-print { background: #C0392B; color: #fff; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; padding: 10px 24px; border: none; border-radius: 6px; cursor: pointer; margin-top: 16px; }
   .btn-fiche-print:hover { background: #E74C3C; }
-  @media print {
-    .fiche-sect-controls, .btn-fiche-print { display: none !important; }
-    .fiche-sect-overlay { position: static !important; padding: 0; background: none !important; display: block !important; }
-    .fiche-sect-panel { box-shadow: none; border-radius: 0; max-width: 100%; }
-    body > *:not(.fiche-sect-overlay) { display: none !important; }
-    .fiche-sect-overlay * { display: block !important; }
-  }
 </style>
 </head>
 <body>
@@ -667,7 +692,7 @@
         </thead>
         <tbody id="reportBody"></tbody>
       </table>
-      <button class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+      <button class="btn-print btn-print-report" onclick="imprimerReport()">🖨 Imprimer</button>
     </div>
   </div>
 </div>
@@ -693,7 +718,7 @@
       <select id="fsSecteurSelect" onchange="renderFicheSecteur()"></select>
       <label style="margin-left:8px">Jour</label>
       <select id="fsJourSelect" onchange="renderFicheSecteur()"></select>
-      <button class="btn-fiche-print" onclick="window.print()">🖨 Imprimer</button>
+      <button class="btn-fiche-print" onclick="imprimerFicheSecteur()">🖨 Imprimer</button>
       <button class="btn-close" onclick="closeFicheSecteur()" style="margin-left:auto">✕</button>
     </div>
     <div class="fiche-sect-body" id="ficheSectBody">
@@ -1418,6 +1443,20 @@ function closeFicheSecteur() {
   document.getElementById('ficheSectOverlay').classList.remove('active');
 }
 
+function imprimerFicheSecteur() {
+  document.body.classList.remove('print-report');
+  document.body.classList.add('print-fiche-sect');
+  window.print();
+  setTimeout(() => document.body.classList.remove('print-fiche-sect'), 1000);
+}
+
+function imprimerReport() {
+  document.body.classList.remove('print-fiche-sect');
+  document.body.classList.add('print-report');
+  window.print();
+  setTimeout(() => document.body.classList.remove('print-report'), 1000);
+}
+
 function renderFicheSecteur() {
   const secteurNom = document.getElementById('fsSecteurSelect').value;
   const jourId     = document.getElementById('fsJourSelect').value;
@@ -1596,7 +1635,7 @@ function renderFicheSecteur() {
       </div>
     </div>
 
-    <button class="btn-fiche-print" onclick="window.print()">🖨 Imprimer cette fiche</button>
+    <button class="btn-fiche-print" onclick="imprimerFicheSecteur()">🖨 Imprimer cette fiche</button>
   `;
 
   body.innerHTML = html;
