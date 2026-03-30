@@ -1,1 +1,899 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ROC D'AZUR 2026 — Ma Fiche</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap');
+
+  :root {
+    --rouge: #C0392B;
+    --rouge-vif: #E74C3C;
+    --orange: #E67E22;
+    --dark: #0D1117;
+    --dark2: #161B22;
+    --dark3: #1C2333;
+    --card: #1E2A3A;
+    --texte: #E6EDF3;
+    --texte2: #8B949E;
+    --vert: #238636;
+    --vert-clair: #3FB950;
+    --bleu: #1F6FEB;
+    --bleu-clair: #58A6FF;
+    --violet: #8B5CF6;
+    --jaune: #D29922;
+    --jaune-clair: #E3B341;
+    --border: rgba(255,255,255,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--dark);
+    color: var(--texte);
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ======= ÉCRAN LOGIN ======= */
+  #screenLogin {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px 20px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.15) 0%, transparent 70%),
+                var(--dark);
+  }
+
+  .login-logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; letter-spacing: 3px;
+    color: var(--texte2); text-transform: uppercase; margin-bottom: 8px;
+  }
+  .login-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 38px; font-weight: 900; letter-spacing: 2px;
+    color: var(--texte); line-height: 1; text-align: center;
+    margin-bottom: 4px;
+  }
+  .login-title span { color: var(--rouge-vif); }
+  .login-subtitle {
+    font-size: 13px; color: var(--texte2); text-align: center;
+    margin-bottom: 36px; font-weight: 300;
+  }
+
+  .login-card {
+    background: var(--dark2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    width: 100%; max-width: 360px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .input-group {
+    margin-bottom: 16px;
+  }
+  .input-group label {
+    display: block; font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+    color: var(--texte2); text-transform: uppercase; margin-bottom: 7px;
+  }
+  .input-group input {
+    width: 100%; background: var(--dark3);
+    border: 1px solid var(--border); border-radius: 10px;
+    color: var(--texte); padding: 14px 16px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px; font-weight: 700; letter-spacing: 2px;
+    text-align: center; outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    -webkit-appearance: none;
+  }
+  .input-group input:focus {
+    border-color: var(--rouge);
+    background: rgba(192,57,43,0.08);
+  }
+  .input-group input.error {
+    border-color: var(--rouge-vif);
+    background: rgba(231,76,60,0.1);
+    animation: shake 0.3s ease;
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  .btn-login {
+    width: 100%; padding: 15px;
+    background: linear-gradient(135deg, var(--rouge) 0%, var(--rouge-vif) 100%);
+    border: none; border-radius: 10px; color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px; font-weight: 900; letter-spacing: 2px;
+    cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+    margin-top: 4px;
+    box-shadow: 0 4px 16px rgba(192,57,43,0.4);
+  }
+  .btn-login:active { opacity: 0.85; transform: scale(0.98); }
+
+  .error-msg {
+    color: var(--rouge-vif); font-size: 13px; text-align: center;
+    margin-top: 12px; font-weight: 500; min-height: 18px;
+  }
+
+  .login-jour-badge {
+    text-align: center; margin-top: 20px;
+    font-size: 12px; color: var(--texte2);
+  }
+  .login-jour-badge strong {
+    color: var(--jaune-clair);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px; font-weight: 700; letter-spacing: 1px;
+  }
+
+  /* ======= ÉCRAN FICHE ======= */
+  #screenFiche { display: none; flex-direction: column; min-height: 100vh; }
+
+  /* Header fiche */
+  .fiche-header {
+    background: linear-gradient(135deg, var(--dark2) 0%, #1a0a08 100%);
+    border-bottom: 3px solid var(--rouge);
+    padding: 14px 16px 12px;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .fiche-header-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .fiche-event {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    color: var(--rouge-vif); text-transform: uppercase;
+  }
+  .btn-retour {
+    background: rgba(255,255,255,0.08); border: 1px solid var(--border);
+    color: var(--texte2); border-radius: 6px; padding: 5px 12px;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-retour:active { background: rgba(255,255,255,0.15); }
+
+  .fiche-ps-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 900; line-height: 1.1;
+    color: var(--texte);
+  }
+  .fiche-ps-title span { color: var(--rouge-vif); }
+
+  .fiche-jour-bar {
+    display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  }
+  .jour-chip {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; letter-spacing: 1px;
+    padding: 3px 10px; border-radius: 20px;
+    background: var(--rouge); color: #fff;
+  }
+  .date-chip {
+    font-size: 12px; color: var(--texte2); font-weight: 400;
+  }
+
+  /* Body fiche */
+  .fiche-body {
+    flex: 1; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* Cards */
+  .fiche-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px; overflow: hidden;
+  }
+  .fiche-card-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 16px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-icon {
+    font-size: 18px; line-height: 1;
+  }
+  .card-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+    color: var(--texte2); text-transform: uppercase;
+  }
+  .fiche-card-body { padding: 14px 16px; }
+
+  /* Row infos */
+  .info-row {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .info-row:first-child { padding-top: 0; }
+  .info-label {
+    font-size: 12px; color: var(--texte2); font-weight: 400;
+    white-space: nowrap; min-width: 90px; padding-top: 1px;
+  }
+  .info-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px; font-weight: 700; color: var(--texte);
+    text-align: right; line-height: 1.2;
+  }
+  .info-val.highlight { color: var(--jaune-clair); }
+  .info-val.big {
+    font-size: 22px; color: var(--vert-clair);
+  }
+  .info-val.secteur { color: var(--bleu-clair); }
+  .info-val.tel {
+    color: var(--jaune-clair);
+    font-size: 20px; letter-spacing: 1px;
+  }
+
+  /* Heure MeP - grande */
+  .hmep-display {
+    text-align: center; padding: 10px 0 6px;
+  }
+  .hmep-heure {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 56px; font-weight: 900; line-height: 1;
+    color: var(--vert-clair);
+    text-shadow: 0 0 30px rgba(63,185,80,0.4);
+  }
+  .hmep-label {
+    font-size: 12px; color: var(--texte2); margin-top: 4px;
+    letter-spacing: 1px; font-weight: 400;
+  }
+
+  /* Véhicule */
+  .veh-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(31,111,235,0.15); border: 1px solid rgba(88,166,255,0.25);
+    border-radius: 8px; padding: 10px 16px; margin-top: 4px;
+    width: 100%;
+  }
+  .veh-icon { font-size: 22px; }
+  .veh-nom {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; font-weight: 900; color: var(--bleu-clair);
+  }
+  .veh-depose {
+    font-size: 12px; color: var(--texte2); margin-top: 2px;
+  }
+
+  /* Radios */
+  .radios-grid {
+    display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px;
+  }
+  .radio-card {
+    flex: 1; min-width: 80px;
+    border-radius: 10px; padding: 12px 10px; text-align: center;
+    border: 1px solid;
+  }
+  .radio-card.com { background: rgba(31,111,235,0.12); border-color: rgba(88,166,255,0.3); }
+  .radio-card.crs { background: rgba(192,57,43,0.12); border-color: rgba(231,76,60,0.3); }
+  .radio-card.cmv { background: rgba(35,134,54,0.12); border-color: rgba(63,185,80,0.3); }
+  .radio-card.off { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.06); opacity: 0.4; }
+  .radio-nb {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 30px; font-weight: 900; line-height: 1;
+  }
+  .radio-card.com .radio-nb { color: var(--bleu-clair); }
+  .radio-card.crs .radio-nb { color: var(--rouge-vif); }
+  .radio-card.cmv .radio-nb { color: var(--vert-clair); }
+  .radio-card.off .radio-nb { color: var(--texte2); }
+  .radio-type {
+    font-size: 11px; font-weight: 600; letter-spacing: 1px;
+    color: var(--texte2); margin-top: 3px;
+  }
+
+  /* Courses */
+  .course-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .course-item:last-child { border-bottom: none; }
+  .course-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .course-nom {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px; font-weight: 700; color: var(--texte);
+    flex: 1;
+  }
+  .course-jour-tag {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px; font-weight: 700; padding: 2px 8px;
+    border-radius: 4px; background: rgba(255,255,255,0.08);
+    color: var(--texte2);
+  }
+
+  /* Coéquipiers secteur */
+  .equipe-list {
+    display: flex; flex-direction: column; gap: 6px; padding-top: 4px;
+  }
+  .equipe-item {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.03); border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .equipe-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--dark3), var(--card));
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; color: var(--texte2);
+    flex-shrink: 0;
+  }
+  .equipe-nom {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px; font-weight: 700; color: var(--texte);
+    flex: 1;
+  }
+  .equipe-ps {
+    font-size: 11px; color: var(--texte2);
+    background: rgba(255,255,255,0.06); border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  /* Observation */
+  .obs-text {
+    font-size: 14px; color: var(--jaune-clair);
+    line-height: 1.5; font-style: italic;
+    padding: 4px 0;
+  }
+
+  /* Urgence footer */
+  .urgence-banner {
+    background: rgba(192,57,43,0.12);
+    border: 1px solid rgba(231,76,60,0.3);
+    border-radius: 12px; padding: 14px 16px;
+    text-align: center;
+  }
+  .urgence-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; letter-spacing: 1.5px;
+    color: var(--rouge-vif); text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .urgence-text {
+    font-size: 13px; color: var(--texte2); line-height: 1.4;
+  }
+  .urgence-text strong { color: var(--texte); }
+
+  /* Not found */
+  .notfound {
+    text-align: center; padding: 40px 20px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px; color: var(--texte2);
+  }
+  .notfound span { display: block; font-size: 48px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ======= ÉCRAN LOGIN ======= -->
+<div id="screenLogin">
+  <div class="login-logo">CCFF · RSA</div>
+  <div class="login-title">ROC D'AZUR <span>2026</span></div>
+  <div class="login-subtitle">Ma fiche point signaleur</div>
+
+  <div class="login-card">
+    <div class="input-group">
+      <label>Numéro de point signaleur</label>
+      <input type="number" id="inputPS" placeholder="Ex : 33" min="1" max="250"
+        inputmode="numeric" autocomplete="off" />
+    </div>
+    <div class="input-group">
+      <label>Code d'accès</label>
+      <input type="password" id="inputCode" placeholder="·····"
+        inputmode="numeric" maxlength="5" autocomplete="off" />
+    </div>
+    <button class="btn-login" onclick="acceder()">ACCÉDER À MA FICHE</button>
+    <div class="error-msg" id="errMsg"></div>
+  </div>
+
+  <div class="login-jour-badge">
+    Jour en cours : <strong id="loginJourLabel">—</strong>
+  </div>
+</div>
+
+<!-- ======= ÉCRAN FICHE ======= -->
+<div id="screenFiche">
+  <div class="fiche-header">
+    <div class="fiche-header-top">
+      <div class="fiche-event">🚵 ROC D'AZUR 2026</div>
+      <button class="btn-retour" onclick="retour()">← Retour</button>
+    </div>
+    <div class="fiche-ps-title" id="fichePSTitre">PS <span id="ficheNumPS">—</span></div>
+    <div class="fiche-jour-bar">
+      <span class="jour-chip" id="ficheJourChip">J1</span>
+      <span class="date-chip" id="ficheDateChip">—</span>
+    </div>
+  </div>
+  <div class="fiche-body" id="ficheBody"></div>
+</div>
+
+<script>
+// ============================================================
+// DONNÉES — synchronisées avec RA2026_SAISIE.html
+// ============================================================
+const JOUR_COURANT = 'J1'; // ← À mettre à jour chaque jour (J1…J5)
+const CODE_ACCES   = '83107';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
+const SHEETS_ENABLED  = true;
+
+// ── Appel Apps Script via JSONP ───────────────────────────────────────────────
+function callAS(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const timeout = setTimeout(() => {
+      delete window[cbName]; reject(new Error('Timeout (30s)'));
+    }, 30000); // 30s pour Apps Script qui peut être lent
+    window[cbName] = (data) => {
+      clearTimeout(timeout); delete window[cbName]; resolve(data);
+    };
+    const qs = new URLSearchParams({ ...params, callback: cbName });
+    const s  = document.createElement('script');
+    s.src    = `${APPS_SCRIPT_URL}?${qs}`;
+    s.onerror = () => {
+      clearTimeout(timeout); delete window[cbName];
+      reject(new Error('Script introuvable — vérifier l\'URL Apps Script'));
+    };
+    document.head.appendChild(s);
+    setTimeout(() => { try { s.remove(); } catch(e) {} }, 35000);
+  });
+}
+
+const JOURS = [
+  { id:'J1', label:'J1', date:'MERCREDI 07/10/2026' },
+  { id:'J2', label:'J2', date:'JEUDI 08/10/2026' },
+  { id:'J3', label:'J3', date:'VENDREDI 09/10/2026' },
+  { id:'J4', label:'J4', date:'SAMEDI 10/10/2026' },
+  { id:'J5', label:'J5', date:'DIMANCHE 11/10/2026' },
+];
+
+// REFERANTS statiques supprimés — le tel référant vient directement
+// de d.telReferant retourné par Apps Script (REF_Referents dans Sheets)
+const REFERANTS = [];
+
+const COURSES = {
+  'Enduro 40 Kms': { jours:['J3'], ps:[31,32,33,34,35,36,37,38,39,40], couleur:'#8B5CF6' },
+  'Noire':         { jours:['J2'], ps:[100,101,102,103,104,105,106,107,108,109,110], couleur:'#1F6FEB' },
+};
+
+// Données de saisie — à terme injectées depuis Google Sheets
+// Format : SAISIE_DATA[jourId] = [ { secteur, referant, hmepSect, rows:[...] } ]
+const SAISIE_DATA = {
+  J1: [
+    { secteur:'LA_GAILLARDE', referant:'Référant_01', hmepSect:'6h00', commentaires:['Appel des Ouailles by Franck','ne pas oublier les paniers repas','Toto - Test lecture'], rows:[
+      { ps:'33 - Impasse des Celtes',    hmep:'6h30', vehA:'MITSU', vehB:'', b1:'Bénévole_006', b2:'Bénévole_007', b3:'', com:4, crs:1, cmv:1, obs:'Ici Un Commentaire' },
+      { ps:'31 - Barrières des Dolmens', hmep:'7h00', vehA:'R8',   vehB:'', b1:'Bénévole_003', b2:'Bénévole_032', b3:'', com:1, crs:0, cmv:1, obs:'oops, la boulette' },
+    ]},
+    { secteur:'FOURNEL', referant:'Référant_03', hmepSect:'7h00', commentaires:[], rows:[
+      { ps:'106 - LA GAFFE', hmep:'7h15', vehA:'PANDA', vehB:'', b1:'Bénévole_037', b2:'Bénévole_061', b3:'', com:0, crs:1, cmv:1, obs:'' },
+    ]},
+    { secteur:'CLAPIERS', referant:'Référant_05', hmepSect:'6h30', commentaires:['Chasser les Lapins du ...','MeP Double sens ( piquets )'], rows:[
+      { ps:'171&172 - AMBALAO CLAPIERS (DOUBLE SENS) + DRAILLE BAS CABRET', hmep:'6h45', vehA:'MITSU', vehB:'', b1:'Bénévole_004', b2:'Bénévole_006', b3:'', com:2, crs:1, cmv:1, obs:'' },
+      { ps:'172 - BAS DRAILLE CABRET CLAPIERS', hmep:'9h15', vehA:'', vehB:'', b1:'Bénévole_004', b2:'', b3:'', com:0, crs:0, cmv:0, obs:'Déposé par MITSU' },
+    ]},
+  ],
+  J3: [
+    { secteur:'CLAPIERS', referant:'Référant_02', hmepSect:'7h00', rows:[
+      { ps:'171 - AMBALAO',                                                       hmep:'6h30', vehA:'R9',    vehB:'',     b1:'Bénévole_065', b2:'Bénévole_050', b3:'', com:1, crs:1,  cmv:1,  obs:'' },
+      { ps:'172 - BAS DRAILLE CABRET CLAPIERS',                                   hmep:'7h00', vehA:'JIMNY', vehB:'',     b1:'Bénévole_004', b2:'Bénévole_043', b3:'', com:1, crs:0, cmv:1,  obs:'' },
+      { ps:'171&172 - AMBALAO CLAPIERS (DOUBLE SENS) + DRAILLE BAS CABRET',       hmep:'7h00', vehA:'',     vehB:'',     b1:'Bénévole_022', b2:'Bénévole_040', b3:'', com:1, crs:0, cmv:0, obs:'Déposé par R9' },
+    ]},
+  ],
+};
+
+// ============================================================
+// LOGIQUE
+// ============================================================
+
+// Extrait tous les numéros d'un string PS ("31 - Barrières..." → [31])
+function extractNums(psStr) {
+  return (psStr || '').match(/\d+/g)?.map(Number) || [];
+}
+
+// Trouve la ligne de saisie correspondant à un numéro PS et un jour
+function findRowByPS(psNum, jourId) {
+  const sects = SAISIE_DATA[jourId] || [];
+  for (const s of sects) {
+    for (const r of s.rows) {
+      if (extractNums(r.ps).includes(psNum)) {
+        return { secteurObj: s, row: r };
+      }
+    }
+  }
+  return null;
+}
+
+// Trouve tous les bénévoles du même secteur (hors la ligne elle-même)
+function coequipiersSecteur(secteurNom, jourId, excludePS) {
+  const sects = SAISIE_DATA[jourId] || [];
+  const result = [];
+  for (const s of sects) {
+    if (s.secteur !== secteurNom) continue;
+    for (const r of s.rows) {
+      if (!r.ps || r.ps === excludePS) continue;
+      const benevs = [r.b1,r.b2,r.b3].filter(Boolean);
+      if (benevs.length) result.push({ ps: r.ps, benevoles: benevs });
+    }
+  }
+  return result;
+}
+
+// Courses passant par un PS — toutes, tous jours confondus
+function coursesPS(psNum, jourId) {
+  return Object.entries(COURSES).filter(([, c]) => Array.isArray(c.ps) && c.ps.includes(psNum));
+}
+
+// ============================================================
+// UI LOGIN
+// ============================================================
+const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
+document.getElementById('loginJourLabel').textContent =
+  `${jourInfo.label} — ${jourInfo.date}`;
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') acceder();
+});
+
+async function acceder() {
+  const psVal  = parseInt(document.getElementById('inputPS').value);
+  const code   = document.getElementById('inputCode').value.trim();
+  const errEl  = document.getElementById('errMsg');
+
+  errEl.textContent = '';
+  document.getElementById('inputCode').classList.remove('error');
+  document.getElementById('inputPS').classList.remove('error');
+
+  if (!psVal || psVal < 1 || psVal > 250) {
+    document.getElementById('inputPS').classList.add('error');
+    errEl.textContent = 'Numéro de PS invalide (1–250)';
+    return;
+  }
+  if (code !== CODE_ACCES) {
+    document.getElementById('inputCode').classList.add('error');
+    errEl.textContent = 'Code d\'accès incorrect';
+    return;
+  }
+
+  // Mode Sheets : interroge Apps Script via JSONP
+  if (SHEETS_ENABLED) {
+    const btn = document.querySelector('.btn-login');
+    btn.textContent = '⏳ Chargement…'; btn.disabled = true;
+    errEl.textContent = '';
+    try {
+      const json = await callAS({ action: 'getFichePS', ps: psVal, jour: JOUR_COURANT });
+      if (!json.ok) throw new Error(json.error);
+      if (!json.data) {
+        errEl.textContent = `PS ${psVal} non trouvé pour ${JOUR_COURANT} — contacte ton référant`;
+        btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
+        return;
+      }
+      afficherFicheFromSheets(psVal, JOUR_COURANT, json.data);
+    } catch(e) {
+      console.error('Fiche fetch error:', e);
+      errEl.textContent = `Erreur : ${e.message} — vérification hors-ligne`;
+      afficherFiche(psVal, JOUR_COURANT);
+    } finally {
+      btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
+    }
+  } else {
+    afficherFiche(psVal, JOUR_COURANT);
+  }
+}
+
+function retour() {
+  document.getElementById('screenFiche').style.display = 'none';
+  document.getElementById('screenLogin').style.display = 'flex';
+  document.getElementById('inputPS').value = '';
+  document.getElementById('inputCode').value = '';
+}
+
+// ============================================================
+// RENDU FICHE
+// ============================================================
+function afficherFiche(psNum, jourId) {
+  const jour = JOURS.find(j => j.id === jourId);
+  document.getElementById('ficheNumPS').textContent = psNum;
+  document.getElementById('ficheJourChip').textContent = jour.label;
+  document.getElementById('ficheDateChip').textContent = jour.date;
+
+  const body = document.getElementById('ficheBody');
+  body.innerHTML = '';
+
+  const found = findRowByPS(psNum, jourId);
+
+  if (!found) {
+    body.innerHTML = `
+      <div class="notfound">
+        <span>🔍</span>
+        PS <strong>${psNum}</strong> non trouvé pour ${jour.label}.<br>
+        Contacte ton référant.
+      </div>`;
+    document.getElementById('screenLogin').style.display = 'none';
+    document.getElementById('screenFiche').style.display = 'flex';
+    return;
+  }
+
+  const { secteurObj: s, row: r } = found;
+  const telRef = s.telReferant || (REFERANTS.find(ref => ref.nom === s.referant) || {}).tel || '—';
+  const courses = coursesPS(psNum, jourId);
+  const coequipiers = coequipiersSecteur(s.secteur, jourId, r.ps);
+  const benevoles = [r.b1,r.b2,r.b3].filter(Boolean);
+
+  // ---- Card 1 : Identification PS ----
+  const psTitre = r.ps || `PS ${psNum}`;
+  document.getElementById('fichePSTitre').innerHTML =
+    `PS <span style="color:var(--rouge-vif)">${psNum}</span> — ${psTitre.replace(/^\d+\s*[-&]+\s*/, '')}`;
+
+  body.insertAdjacentHTML('beforeend', `
+    <div class="fiche-card">
+      <div class="fiche-card-header">
+        <span class="card-icon">📍</span>
+        <span class="card-title">Mon Point Signaleur</span>
+      </div>
+      <div class="fiche-card-body">
+        <div class="info-row">
+          <span class="info-label">Secteur</span>
+          <span class="info-val secteur">${s.secteur}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Référant</span>
+          <span class="info-val">${s.referant}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Tél. référant</span>
+          <span class="info-val tel">📞 ${telRef}</span>
+        </div>
+        ${benevoles.length > 1 ? `
+        <div class="info-row">
+          <span class="info-label">Coéquipier(s) PS</span>
+          <span class="info-val" style="font-size:14px">${benevoles.slice(1).join('<br>')}</span>
+        </div>` : ''}
+      </div>
+    </div>
+  `);
+
+  // ---- Card 2 : Heure de mise en place ----
+  body.insertAdjacentHTML('beforeend', `
+    <div class="fiche-card">
+      <div class="fiche-card-header">
+        <span class="card-icon">⏰</span>
+        <span class="card-title">Heure de mise en place</span>
+      </div>
+      <div class="fiche-card-body">
+        <div class="hmep-display">
+          <div class="hmep-heure">${r.hmep || '—'}</div>
+          <div class="hmep-label">HEURE D'ARRIVÉE AU POINT</div>
+        </div>
+        <div class="info-row" style="margin-top:8px">
+          <span class="info-label">H MeP secteur</span>
+          <span class="info-val highlight">${s.hmepSect || '—'}</span>
+        </div>
+      </div>
+    </div>
+  `);
+
+  // ---- Card 3 : Véhicule ----
+  const vehNom = r.vehA || r.vehB || null;
+  const hasDepose = r.obs && r.obs.toLowerCase().includes('déposé');
+  body.insertAdjacentHTML('beforeend', `
+    <div class="fiche-card">
+      <div class="fiche-card-header">
+        <span class="card-icon">🚗</span>
+        <span class="card-title">Transport</span>
+      </div>
+      <div class="fiche-card-body">
+        ${vehNom ? `
+          <div class="veh-badge">
+            <span class="veh-icon">🚙</span>
+            <div>
+              <div class="veh-nom">${vehNom}${r.vehB ? ' + ' + r.vehB : ''}</div>
+              ${hasDepose ? `<div class="veh-depose">${r.obs}</div>` : ''}
+            </div>
+          </div>` : `<div style="color:var(--texte2);font-size:14px;padding:4px 0">Aucun véhicule assigné — déposé par un autre</div>`
+        }
+      </div>
+    </div>
+  `);
+
+  // ---- Card 4 : Radios ----
+  const radioCards = [
+    { key:'com', label:'COM',   cls: (r.com||0)>0 ? 'com' : 'off', nb: r.com||0 },
+    { key:'crs', label:'COURSE',cls: (r.crs||0)>0 ? 'crs' : 'off', nb: r.crs||0 },
+    { key:'cmv', label:'COM V', cls: (r.cmv||0)>0 ? 'cmv' : 'off', nb: r.cmv||0 },
+  ];
+  body.insertAdjacentHTML('beforeend', `
+    <div class="fiche-card">
+      <div class="fiche-card-header">
+        <span class="card-icon">📻</span>
+        <span class="card-title">Dotation Radios</span>
+      </div>
+      <div class="fiche-card-body">
+        <div class="radios-grid">
+          ${radioCards.map(rc => `
+            <div class="radio-card ${rc.cls}">
+              <div class="radio-nb">${rc.nb}</div>
+              <div class="radio-type">${rc.label}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `);
+
+  // ---- Card 5 : Courses (toutes celles passant par ce PS) ----
+  if (courses.length) {
+    const coursesHtml = courses.map(([nom, c]) => {
+      const aujourdhui = c.jours.includes(jourId);
+      return `
+      <div class="course-item" style="${aujourdhui ? '' : 'opacity:0.5'}">
+        <div class="course-dot" style="background:${c.couleur}"></div>
+        <div style="flex:1">
+          <span class="course-nom">${nom}</span>
+          ${aujourdhui ? `<span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+            background:${c.couleur};color:#fff;border-radius:3px;padding:1px 7px;margin-left:8px;
+            vertical-align:middle">CE JOUR</span>` : ''}
+        </div>
+        <span class="course-jour-tag">${c.jours.join(', ')}</span>
+      </div>`;
+    }).join('');
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fiche-card">
+        <div class="fiche-card-header">
+          <span class="card-icon">🏁</span>
+          <span class="card-title">Course(s) passant par ce PS</span>
+        </div>
+        <div class="fiche-card-body">${coursesHtml}</div>
+      </div>
+    `);
+  }
+
+  // ---- Card 6 : Coéquipiers secteur ----
+  if (coequipiers.length) {
+    const equipHtml = coequipiers.map(eq => {
+      const psLabel = eq.ps.match(/^(\S+)/)?.[1] || eq.ps;
+      return eq.benevoles.map(b => {
+        const initiales = b.replace('Bénévole_','B').slice(0,4);
+        return `
+          <div class="equipe-item">
+            <div class="equipe-avatar">${initiales}</div>
+            <span class="equipe-nom">${b}</span>
+            <span class="equipe-ps">PS ${psLabel}</span>
+          </div>`;
+      }).join('');
+    }).join('');
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fiche-card">
+        <div class="fiche-card-header">
+          <span class="card-icon">👥</span>
+          <span class="card-title">Autres bénévoles — secteur ${s.secteur}</span>
+        </div>
+        <div class="fiche-card-body">
+          <div class="equipe-list">${equipHtml}</div>
+        </div>
+      </div>
+    `);
+  }
+
+  // ---- Card 7 : Observation PS (hors info transport) ----
+  const obsTransport = (r.obs || '').toLowerCase().includes('déposé');
+  const obsPS = (r.obs || '').trim();
+  // Toujours afficher obs si elle existe, même si elle contient "déposé"
+  // (le transport card la reprend déjà pour l'info dépôt — ici on la montre en Note)
+  if (obsPS && !obsTransport) {
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fiche-card">
+        <div class="fiche-card-header">
+          <span class="card-icon">📝</span>
+          <span class="card-title">Note importante</span>
+        </div>
+        <div class="fiche-card-body">
+          <div class="obs-text">⚠ ${obsPS}</div>
+        </div>
+      </div>
+    `);
+  }
+
+  // ---- Card 8 : Commentaires secteur (depuis la page de saisie) ----
+  const comsReferant = (s.commentaires || []).filter(Boolean);
+  if (comsReferant.length) {
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fiche-card" style="border-color:rgba(243,156,18,0.3)">
+        <div class="fiche-card-header" style="background:rgba(243,156,18,0.08)">
+          <span class="card-icon">📋</span>
+          <span class="card-title" style="color:var(--jaune-clair)">Message de ton référant</span>
+        </div>
+        <div class="fiche-card-body">
+          ${comsReferant.map((c, i) => `
+            <div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+              <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--jaune-clair);min-width:20px;font-weight:700">${i+1}.</span>
+              <span style="font-size:14px;color:var(--texte);line-height:1.4">${c}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // ---- Banner urgence ----
+  body.insertAdjacentHTML('beforeend', `
+    <div class="urgence-banner">
+      <div class="urgence-title">🚨 En cas d'accident</div>
+      <div class="urgence-text">
+        Contacte le <strong>PC ROC sur RADIO COURSE</strong><br>
+        ou appelle <strong>${telRef !== '—' ? telRef : 'ton référant'}</strong>
+      </div>
+    </div>
+  `);
+
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenFiche').style.display = 'flex';
+  window.scrollTo(0, 0);
+}
+
+// ============================================================
+// RENDU FICHE — depuis Apps Script (données Sheets live)
+// ============================================================
+function afficherFicheFromSheets(psNum, jourId, d) {
+  const jour = JOURS.find(j => j.id === jourId);
+  document.getElementById('ficheNumPS').textContent = psNum;
+  document.getElementById('ficheJourChip').textContent = jour.label;
+  document.getElementById('ficheDateChip').textContent = jour.date;
+
+  // Reconstruit un pseudo-secteurObj et row compatibles avec afficherFiche
+  const pseudoSecteur = {
+    secteur:      d.secteur,
+    referant:     d.referant,
+    hmepSect:     d.hmepSect,
+    commentaires: d.commentaires || [],
+    telReferant:  d.telReferant || '',  // tel direct depuis Sheets
+  };
+  const pseudoRow = {
+    ps:   d.ps,
+    hmep: d.hmep,
+    vehA: d.vehA, vehB: d.vehB,
+    b1: d.benevoles[0]||'', b2: d.benevoles[1]||'', b3: d.benevoles[2]||'',
+    b4: d.benevoles[3]||'', b5: d.benevoles[4]||'',
+    com: d.com, crs: d.crs, cmv: d.cmv,
+    obs: d.obs,
+  };
+
+  // Reconstruit SAISIE_DATA temporairement pour les helpers coequipiers
+  if (!SAISIE_DATA[jourId]) SAISIE_DATA[jourId] = [];
+  const existIdx = SAISIE_DATA[jourId].findIndex(s => s.secteur === d.secteur);
+  const sectBlock = {
+    secteur:      d.secteur,
+    referant:     d.referant,
+    hmepSect:     d.hmepSect,
+    commentaires: d.commentaires || [],
+    rows: [pseudoRow, ...(d.coequipiers || []).map(eq => ({
+      ps: eq.ps,
+      b1: eq.benevoles[0]||'', b2: eq.benevoles[1]||'', b3: eq.benevoles[2]||'',
+    }))],
+  };
+  if (existIdx >= 0) SAISIE_DATA[jourId][existIdx] = sectBlock;
+  else SAISIE_DATA[jourId].push(sectBlock);
+
+  // Injecte les courses depuis la réponse Sheets
+  if (d.courses && d.courses.length) {
+    d.courses.forEach(c => {
+      COURSES[c.nom] = { jours: c.jours, ps: c.ps, couleur: c.couleur };
+    });
+  }
+
+  afficherFiche(psNum, jourId);
+}
+</script>
+</body>
+</html>
 
