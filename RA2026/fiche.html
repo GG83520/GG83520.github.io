@@ -390,11 +390,24 @@
       <input type="number" id="inputPS" placeholder="Ex : 33" min="1" max="250"
         inputmode="numeric" autocomplete="off" />
     </div>
-    <div class="input-group">
-      <label>Code d'accès</label>
-      <input type="password" id="inputCode" placeholder="·····"
-        inputmode="numeric" maxlength="5" autocomplete="off" />
+
+    <!-- Sélecteur de jour — visible uniquement hors période événement -->
+    <div class="input-group" id="jourSelectorGroup" style="display:none">
+      <label>Jour</label>
+      <select id="inputJour" style="
+        width:100%; padding:14px 16px; border-radius:10px;
+        background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.12);
+        color:#fff; font-family:'Barlow Condensed',sans-serif;
+        font-size:18px; font-weight:600; letter-spacing:1px;
+      ">
+        <option value="J1">J1 — Mercredi 07/10/2026</option>
+        <option value="J2">J2 — Jeudi 08/10/2026</option>
+        <option value="J3">J3 — Vendredi 09/10/2026</option>
+        <option value="J4">J4 — Samedi 10/10/2026</option>
+        <option value="J5">J5 — Dimanche 11/10/2026</option>
+      </select>
     </div>
+
     <button class="btn-login" onclick="acceder()">ACCÉDER À MA FICHE</button>
     <div class="error-msg" id="errMsg"></div>
   </div>
@@ -424,10 +437,33 @@
 // ============================================================
 // DONNÉES — synchronisées avec RA2026_SAISIE.html
 // ============================================================
-const JOUR_COURANT = 'J1'; // ← À mettre à jour chaque jour (J1…J5)
-const CODE_ACCES   = '83107';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
 const SHEETS_ENABLED  = true;
+
+// ── Détection automatique du jour ─────────────────────────────────────────────
+// Période événement : 7→11 octobre 2026
+const PERIODE = [
+  { id:'J1', date: new Date('2026-10-07') },
+  { id:'J2', date: new Date('2026-10-08') },
+  { id:'J3', date: new Date('2026-10-09') },
+  { id:'J4', date: new Date('2026-10-10') },
+  { id:'J5', date: new Date('2026-10-11') },
+];
+
+function detecterJour() {
+  const auj = new Date();
+  auj.setHours(0,0,0,0);
+  const match = PERIODE.find(p => {
+    const d = new Date(p.date); d.setHours(0,0,0,0);
+    return d.getTime() === auj.getTime();
+  });
+  return match ? match.id : null; // null = hors période
+}
+
+// Mode : 'auto' pendant l'événement, 'select' avant/après
+const jourAuto   = detecterJour();
+const MODE_AUTO  = jourAuto !== null;
+let   JOUR_COURANT = MODE_AUTO ? jourAuto : 'J1'; // défaut J1 hors période
 
 // ── Appel Apps Script via JSONP ───────────────────────────────────────────────
 function callAS(params) {
@@ -536,11 +572,26 @@ function coursesPS(psNum, jourId) {
 }
 
 // ============================================================
-// UI LOGIN
+// UI LOGIN — initialisation selon mode auto/select
 // ============================================================
-const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
-document.getElementById('loginJourLabel').textContent =
-  `${jourInfo.label} — ${jourInfo.date}`;
+(function initLogin() {
+  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
+
+  if (MODE_AUTO) {
+    // Période événement : jour affiché, pas de sélecteur
+    document.getElementById('loginJourLabel').textContent =
+      `${jourInfo.label} — ${jourInfo.date}`;
+    document.getElementById('jourSelectorGroup').style.display = 'none';
+  } else {
+    // Hors période : sélecteur de jour visible
+    document.getElementById('loginJourLabel').textContent = 'Mode démo — choisissez le jour';
+    document.getElementById('jourSelectorGroup').style.display = 'block';
+    // Mettre à jour JOUR_COURANT quand le select change
+    document.getElementById('inputJour').addEventListener('change', function() {
+      JOUR_COURANT = this.value;
+    });
+  }
+})();
 
 // Enter key support
 document.addEventListener('keydown', e => {
@@ -548,22 +599,20 @@ document.addEventListener('keydown', e => {
 });
 
 async function acceder() {
-  const psVal  = parseInt(document.getElementById('inputPS').value);
-  const code   = document.getElementById('inputCode').value.trim();
-  const errEl  = document.getElementById('errMsg');
+  const psVal = parseInt(document.getElementById('inputPS').value);
+  const errEl = document.getElementById('errMsg');
+
+  // En mode select (hors période), récupérer le jour choisi
+  if (!MODE_AUTO) {
+    JOUR_COURANT = document.getElementById('inputJour').value;
+  }
 
   errEl.textContent = '';
-  document.getElementById('inputCode').classList.remove('error');
   document.getElementById('inputPS').classList.remove('error');
 
   if (!psVal || psVal < 1 || psVal > 250) {
     document.getElementById('inputPS').classList.add('error');
     errEl.textContent = 'Numéro de PS invalide (1–250)';
-    return;
-  }
-  if (code !== CODE_ACCES) {
-    document.getElementById('inputCode').classList.add('error');
-    errEl.textContent = 'Code d\'accès incorrect';
     return;
   }
 
@@ -597,7 +646,6 @@ function retour() {
   document.getElementById('screenFiche').style.display = 'none';
   document.getElementById('screenLogin').style.display = 'flex';
   document.getElementById('inputPS').value = '';
-  document.getElementById('inputCode').value = '';
 }
 
 // ============================================================
@@ -897,4 +945,3 @@ function afficherFicheFromSheets(psNum, jourId, d) {
 </script>
 </body>
 </html>
-
