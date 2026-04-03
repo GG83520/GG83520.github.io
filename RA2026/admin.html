@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RA2026 — Admin Import</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --rouge:   #C0392B;
+  --rouge2:  #E74C3C;
+  --dark:    #0F1923;
+  --dark2:   #16213E;
+  --dark3:   #1A2744;
+  --bleu:    #2980B9;
+  --vert:    #27AE60;
+  --orange:  #E67E22;
+  --texte:   #ECF0F1;
+  --texte2:  #BDC3C7;
+  --border:  rgba(255,255,255,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--dark);
+  color: var(--texte);
+  font-family: 'Barlow', sans-serif;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+header {
+  background: linear-gradient(135deg, var(--dark2) 0%, var(--dark3) 100%);
+  border-bottom: 3px solid var(--rouge);
+  padding: 16px 28px;
+  display: flex; align-items: center; gap: 16px;
+}
+.header-logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px; font-weight: 900; letter-spacing: 2px;
+  color: var(--texte);
+}
+.header-logo span { color: var(--rouge); }
+.header-badge {
+  background: var(--orange); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  padding: 3px 10px; border-radius: 3px; text-transform: uppercase;
+}
+
+/* ── MAIN LAYOUT ── */
+main {
+  max-width: 860px; margin: 32px auto; padding: 0 20px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--dark2);
+  border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.card-header {
+  background: var(--dark3);
+  padding: 12px 20px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--texte2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.card-body { padding: 20px; }
+
+/* ── PASSWORD GATE ── */
+#gateCard { display: none; } /* désactivé pour l'instant */
+
+/* ── STEP INDICATOR ── */
+.steps {
+  display: flex; gap: 0; margin-bottom: 4px;
+}
+.step {
+  flex: 1; padding: 10px 16px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--texte2);
+  border-bottom: 3px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  transition: all 0.2s;
+}
+.step.active { color: var(--texte); border-bottom-color: var(--rouge); }
+.step.done   { color: var(--vert);  border-bottom-color: var(--vert); }
+.step-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--border); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 900; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.step.active .step-num { background: var(--rouge); color: #fff; }
+.step.done   .step-num { background: var(--vert);  color: #fff; }
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px; padding: 36px 20px;
+  text-align: center; cursor: pointer;
+  transition: all 0.2s; position: relative;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--bleu); background: rgba(41,128,185,0.06);
+}
+.upload-zone.loaded { border-color: var(--vert); background: rgba(39,174,96,0.06); }
+.upload-icon { font-size: 36px; margin-bottom: 10px; }
+.upload-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px; font-weight: 700; letter-spacing: 1px; color: var(--texte);
+}
+.upload-sub { font-size: 12px; color: var(--texte2); margin-top: 4px; }
+#fileInput { display: none; }
+
+/* ── SHEET SELECTOR ── */
+.sheet-selector {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;
+}
+.sheet-btn {
+  padding: 6px 14px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--dark3); color: var(--texte2); cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 600;
+  letter-spacing: 0.5px; transition: all 0.15s;
+}
+.sheet-btn:hover { border-color: var(--bleu); color: var(--texte); }
+.sheet-btn.active { background: var(--bleu); border-color: var(--bleu); color: #fff; }
+
+/* ── MAPPING ── */
+.mapping-grid {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px 12px;
+  align-items: center; margin-top: 8px;
+}
+.map-label {
+  font-size: 12px; color: var(--texte2);
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px;
+}
+.map-arrow { color: var(--texte2); text-align: center; }
+.map-select {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  color: var(--texte); border-radius: 4px; padding: 5px 8px;
+  font-family: 'Barlow', sans-serif; font-size: 12px; width: 100%;
+}
+.map-select option { background: var(--dark2); }
+
+/* ── PREVIEW TABLE ── */
+.preview-wrap {
+  overflow-x: auto; border-radius: 6px;
+  border: 1px solid var(--border); margin-top: 8px;
+}
+.preview-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.preview-table th {
+  background: var(--dark3); padding: 6px 10px;
+  text-align: left; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--texte2); white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.preview-table th.jx { color: var(--vert); }
+.preview-table td {
+  padding: 5px 10px; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.preview-table tr:last-child td { border-bottom: none; }
+.preview-table tr:hover td { background: rgba(255,255,255,0.02); }
+.jx-cell { text-align: center; }
+.jx-on  { color: var(--vert);  font-weight: 700; }
+.jx-off { color: var(--border); }
+
+/* ── PROGRESS ── */
+.progress-bar-wrap {
+  background: var(--dark3); border-radius: 4px; height: 8px;
+  overflow: hidden; margin: 10px 0;
+}
+.progress-bar {
+  height: 100%; background: var(--vert);
+  transition: width 0.3s; border-radius: 4px;
+  width: 0%;
+}
+
+/* ── LOG ── */
+.log-box {
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px 14px;
+  font-family: monospace; font-size: 12px;
+  max-height: 180px; overflow-y: auto;
+  color: var(--texte2);
+}
+.log-ok   { color: var(--vert); }
+.log-warn { color: var(--orange); }
+.log-err  { color: var(--rouge2); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 22px; border-radius: 6px; border: none;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px; font-weight: 700; letter-spacing: 1px;
+  cursor: pointer; transition: all 0.15s; text-transform: uppercase;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--rouge); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--rouge2); }
+.btn-success { background: var(--vert); color: #fff; }
+.btn-success:hover:not(:disabled) { background: #2ECC71; }
+.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--texte2); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--texte2); color: var(--texte); }
+
+/* ── STATS CHIPS ── */
+.stat-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.chip {
+  padding: 5px 12px; border-radius: 20px;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.chip-blue   { background: rgba(41,128,185,0.2); color: #5DADE2; border: 1px solid rgba(41,128,185,0.3); }
+.chip-green  { background: rgba(39,174,96,0.2);  color: #58D68D; border: 1px solid rgba(39,174,96,0.3); }
+.chip-orange { background: rgba(230,126,34,0.2); color: #F0A500; border: 1px solid rgba(230,126,34,0.3); }
+
+.info-box {
+  background: rgba(41,128,185,0.08); border: 1px solid rgba(41,128,185,0.2);
+  border-radius: 6px; padding: 10px 14px;
+  font-size: 12px; color: var(--texte2); line-height: 1.6;
+}
+.info-box strong { color: var(--texte); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-logo">ROC D'AZUR <span>2026</span></div>
+  <div class="header-badge">⚙ Admin Import</div>
+</header>
+
+<main>
+
+  <!-- STEPS -->
+  <div class="steps">
+    <div class="step active" id="step1"><div class="step-num">1</div> Upload fichier</div>
+    <div class="step"        id="step2"><div class="step-num">2</div> Sélectionner onglet</div>
+    <div class="step"        id="step3"><div class="step-num">3</div> Prévisualiser</div>
+    <div class="step"        id="step4"><div class="step-num">4</div> Importer</div>
+  </div>
+
+  <!-- ÉTAPE 1 : UPLOAD -->
+  <div class="card" id="cardUpload">
+    <div class="card-header">📂 Étape 1 — Sélectionner le fichier Excel</div>
+    <div class="card-body">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📊</div>
+        <div class="upload-title">Glisser-déposer ou cliquer pour sélectionner</div>
+        <div class="upload-sub">Fichier accepté : TableauBenevoles_RA2026_v4.xlsm ou .xlsx</div>
+        <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls">
+      </div>
+      <div id="fileInfo" style="display:none;margin-top:12px">
+        <div class="stat-chips" id="fileChips"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 2 : SÉLECTION ONGLET -->
+  <div class="card" id="cardSheet" style="display:none">
+    <div class="card-header">📋 Étape 2 — Choisir l'onglet à importer</div>
+    <div class="card-body">
+      <div class="info-box">
+        Sélectionne l'onglet <strong>ROC2026_Benevoles</strong> pour importer les disponibilités J1→J5 vers Google Sheets.
+      </div>
+      <div class="sheet-selector" id="sheetSelector"></div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 3 : PRÉVISUALISATION -->
+  <div class="card" id="cardPreview" style="display:none">
+    <div class="card-header">👁 Étape 3 — Prévisualisation des données</div>
+    <div class="card-body">
+      <div class="stat-chips" id="previewStats"></div>
+      <div class="preview-wrap" style="margin-top:12px">
+        <table class="preview-table" id="previewTable">
+          <thead id="previewHead"></thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:var(--texte2)">
+        Aperçu des 10 premières lignes · Seules les colonnes <span style="color:var(--vert)">J1→J5</span> seront écrasées dans Sheets
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="resetAll()">↩ Recommencer</button>
+        <button class="btn btn-primary" id="btnImport" onclick="startImport()">▶ Lancer l'import →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 4 : IMPORT -->
+  <div class="card" id="cardImport" style="display:none">
+    <div class="card-header">🚀 Étape 4 — Import vers Google Sheets</div>
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span id="progressLabel" style="font-size:13px;color:var(--texte2)">En attente…</span>
+        <span id="progressPct" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px">0%</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="log-box" id="logBox"></div>
+      <div style="margin-top:14px;display:flex;gap:10px" id="importActions" style="display:none">
+        <button class="btn btn-ghost" onclick="resetAll()">↩ Nouvel import</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
+const ADMIN_CODE = ''; // laisser vide = pas de protection (à remplir plus tard)
+
+// Colonnes Jx dans le xlsx (noms de colonnes dans ROC2026_Benevoles)
+// Col F=MER, G=JEU, H=VEN, I=SAM, J=DIM (index 0-based: 5,6,7,8,9)
+const JX_COL_INDICES = [5, 6, 7, 8, 9]; // F,G,H,I,J dans le xlsx
+const JX_LABELS = ['J1 MER 7/10','J2 JEU 8/10','J3 VEN 9/10','J4 SAM 10/10','J5 DIM 11/10'];
+const JX_CODES  = ['J1','J2','J3','J4','J5'];
+
+// Colonnes dans le xlsx : B=Nom(1), C=Prénom(2), D=Tel(3)
+const COL_NOM    = 1; // B
+const COL_PRENOM = 2; // C
+const COL_TEL    = 3; // D
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let workbook  = null;
+let sheetData = [];   // tableau de lignes [{nom, prenom, tel, j1..j5}]
+let selectedSheet = '';
+
+// ── JSONP ─────────────────────────────────────────────────────────────────────
+function callAS(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const timeout = setTimeout(() => {
+      delete window[cbName]; reject(new Error('Timeout (30s)'));
+    }, 30000);
+    window[cbName] = data => { clearTimeout(timeout); delete window[cbName]; resolve(data); };
+    const qs = new URLSearchParams({ ...params, callback: cbName });
+    const s  = document.createElement('script');
+    s.src    = `${APPS_SCRIPT_URL}?${qs}`;
+    s.onerror = () => { clearTimeout(timeout); delete window[cbName]; reject(new Error('Erreur réseau')); };
+    document.head.appendChild(s);
+    setTimeout(() => { try { s.remove(); } catch(e){} }, 35000);
+  });
+}
+
+// ── STEPS ─────────────────────────────────────────────────────────────────────
+function setStep(n) {
+  [1,2,3,4].forEach(i => {
+    const el = document.getElementById(`step${i}`);
+    el.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    workbook = XLSX.read(e.target.result, { type: 'array' });
+    uploadZone.classList.add('loaded');
+    uploadZone.querySelector('.upload-icon').textContent = '✅';
+    uploadZone.querySelector('.upload-title').textContent = file.name;
+
+    // Stats fichier
+    const chips = document.getElementById('fileChips');
+    chips.innerHTML = `
+      <span class="chip chip-blue">📊 ${workbook.SheetNames.length} onglet(s)</span>
+      <span class="chip chip-green">📁 ${(file.size/1024).toFixed(0)} Ko</span>
+    `;
+    document.getElementById('fileInfo').style.display = 'block';
+
+    // Peupler sélecteur d'onglets
+    const sel = document.getElementById('sheetSelector');
+    sel.innerHTML = workbook.SheetNames.map(n =>
+      `<button class="sheet-btn" onclick="selectSheet('${n}')">${n}</button>`
+    ).join('');
+
+    document.getElementById('cardSheet').style.display = 'block';
+    setStep(2);
+    document.getElementById('cardSheet').scrollIntoView({ behavior: 'smooth' });
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── SHEET SELECTION ───────────────────────────────────────────────────────────
+function selectSheet(name) {
+  selectedSheet = name;
+  document.querySelectorAll('.sheet-btn').forEach(b =>
+    b.classList.toggle('active', b.textContent === name)
+  );
+  parseSheet(name);
+}
+
+function parseSheet(name) {
+  const ws   = workbook.Sheets[name];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+  // Trouver la ligne d'en-tête (ligne avec "Nom" ou "NOM_PRENOM")
+  let headerRow = -1;
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const r = rows[i];
+    if (r.some(c => String(c).toLowerCase().includes('nom'))) { headerRow = i; break; }
+  }
+  if (headerRow === -1) { log('Impossible de trouver la ligne d\'en-tête', 'err'); return; }
+
+  const dataRows = rows.slice(headerRow + 1);
+  sheetData = [];
+
+  dataRows.forEach((row, idx) => {
+    const nom    = String(row[COL_NOM]    || '').trim();
+    const prenom = String(row[COL_PRENOM] || '').trim();
+    const tel    = String(row[COL_TEL]    || '').trim();
+    if (!nom) return; // ligne vide
+
+    const jx = JX_COL_INDICES.map(ci => {
+      const v = row[ci];
+      return (v === 1 || v === '1' || v === true) ? 1 : 0;
+    });
+
+    sheetData.push({ nom, prenom, tel, jx });
+  });
+
+  buildPreview();
+  document.getElementById('cardPreview').style.display = 'block';
+  setStep(3);
+  document.getElementById('cardPreview').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── PREVIEW ───────────────────────────────────────────────────────────────────
+function buildPreview() {
+  // Stats
+  const stats = document.getElementById('previewStats');
+  const totaux = JX_CODES.map((j,i) => sheetData.filter(r => r.jx[i] === 1).length);
+  stats.innerHTML = `
+    <span class="chip chip-blue">👥 ${sheetData.length} bénévoles</span>
+    ${JX_CODES.map((j,i) => `<span class="chip chip-green">${j}: ${totaux[i]} présents</span>`).join('')}
+  `;
+
+  // En-têtes
+  document.getElementById('previewHead').innerHTML = `<tr>
+    <th>Nom</th><th>Prénom</th><th>Téléphone</th>
+    ${JX_LABELS.map(l => `<th class="jx">${l}</th>`).join('')}
+  </tr>`;
+
+  // 10 premières lignes
+  const preview = sheetData.slice(0, 10);
+  document.getElementById('previewBody').innerHTML = preview.map(r => `
+    <tr>
+      <td>${r.nom}</td><td>${r.prenom}</td><td>${r.tel}</td>
+      ${r.jx.map(v => `<td class="jx-cell ${v ? 'jx-on' : 'jx-off'}">${v ? '✓' : '·'}</td>`).join('')}
+    </tr>
+  `).join('');
+}
+
+// ── IMPORT ────────────────────────────────────────────────────────────────────
+async function startImport() {
+  document.getElementById('cardImport').style.display = 'block';
+  setStep(4);
+  document.getElementById('cardImport').scrollIntoView({ behavior: 'smooth' });
+
+  const total = sheetData.length;
+  let done = 0, ok = 0, err = 0;
+
+  log(`Démarrage import — ${total} bénévoles vers Sheets…`, 'ok');
+
+  // Envoyer par lots de 20 pour éviter timeout
+  const BATCH = 20;
+  for (let i = 0; i < sheetData.length; i += BATCH) {
+    const batch = sheetData.slice(i, i + BATCH);
+    try {
+      const result = await callAS({
+        action: 'importBenevoles',
+        data: JSON.stringify(batch),
+      });
+      if (result.ok) {
+        ok += result.data.updated || 0;
+        log(`Lot ${Math.floor(i/BATCH)+1} — ${result.data.updated} ligne(s) mises à jour ✓`, 'ok');
+      } else {
+        err += batch.length;
+        log(`Lot ${Math.floor(i/BATCH)+1} — Erreur : ${result.error}`, 'err');
+      }
+    } catch(e) {
+      err += batch.length;
+      log(`Lot ${Math.floor(i/BATCH)+1} — Timeout/Erreur réseau`, 'warn');
+    }
+    done += batch.length;
+    updateProgress(done, total);
+  }
+
+  log(`─── Import terminé — ${ok} mis à jour, ${err} erreurs ───`, ok > 0 ? 'ok' : 'err');
+  document.getElementById('importActions').style.display = 'flex';
+}
+
+function updateProgress(done, total) {
+  const pct = Math.round((done / total) * 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+  document.getElementById('progressLabel').textContent = `${done} / ${total} bénévoles traités`;
+}
+
+function log(msg, type='') {
+  const box = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.className = type ? `log-${type}` : '';
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── RESET ─────────────────────────────────────────────────────────────────────
+function resetAll() {
+  workbook = null; sheetData = []; selectedSheet = '';
+  fileInput.value = '';
+  uploadZone.classList.remove('loaded', 'drag-over');
+  uploadZone.querySelector('.upload-icon').textContent = '📊';
+  uploadZone.querySelector('.upload-title').textContent = 'Glisser-déposer ou cliquer pour sélectionner';
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('cardSheet').style.display = 'none';
+  document.getElementById('cardPreview').style.display = 'none';
+  document.getElementById('cardImport').style.display = 'none';
+  document.getElementById('logBox').innerHTML = '';
+  document.getElementById('progressBar').style.width = '0%';
+  setStep(1);
+}
+</script>
+</body>
+</html>
