@@ -374,6 +374,17 @@
     font-size: 18px; color: var(--texte2);
   }
   .notfound span { display: block; font-size: 48px; margin-bottom: 12px; }
+
+  /* Boutons sélecteur de jour (mode démo) */
+  .jour-btn {
+    width: 100%; padding: 11px 16px; border-radius: 8px;
+    background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
+    color: var(--texte2); cursor: pointer; text-align: left;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 16px;
+    font-weight: 600; letter-spacing: 1px; transition: all 0.15s;
+  }
+  .jour-btn:hover { border-color: var(--rouge-vif); color: var(--texte); background: rgba(192,57,43,0.1); }
+  .jour-btn.active { background: var(--rouge); border-color: var(--rouge); color: #fff; }
 </style>
 </head>
 <body>
@@ -394,18 +405,13 @@
     <!-- Sélecteur de jour — visible uniquement hors période événement -->
     <div class="input-group" id="jourSelectorGroup" style="display:none">
       <label>Jour</label>
-      <select id="inputJour" style="
-        width:100%; padding:14px 16px; border-radius:10px;
-        background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.12);
-        color:#fff; font-family:'Barlow Condensed',sans-serif;
-        font-size:18px; font-weight:600; letter-spacing:1px;
-      ">
-        <option value="J1">J1 — Mercredi 07/10/2026</option>
-        <option value="J2">J2 — Jeudi 08/10/2026</option>
-        <option value="J3">J3 — Vendredi 09/10/2026</option>
-        <option value="J4">J4 — Samedi 10/10/2026</option>
-        <option value="J5">J5 — Dimanche 11/10/2026</option>
-      </select>
+      <div id="jourBtns" style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+        <button type="button" class="jour-btn active" data-jour="J1" onclick="selectJour('J1')">J1 — Mercredi 07/10/2026</button>
+        <button type="button" class="jour-btn" data-jour="J2" onclick="selectJour('J2')">J2 — Jeudi 08/10/2026</button>
+        <button type="button" class="jour-btn" data-jour="J3" onclick="selectJour('J3')">J3 — Vendredi 09/10/2026</button>
+        <button type="button" class="jour-btn" data-jour="J4" onclick="selectJour('J4')">J4 — Samedi 10/10/2026</button>
+        <button type="button" class="jour-btn" data-jour="J5" onclick="selectJour('J5')">J5 — Dimanche 11/10/2026</button>
+      </div>
     </div>
 
     <button class="btn-login" onclick="acceder()">ACCÉDER À MA FICHE</button>
@@ -574,22 +580,26 @@ function coursesPS(psNum, jourId) {
 // ============================================================
 // UI LOGIN — initialisation selon mode auto/select
 // ============================================================
-(function initLogin() {
-  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
+// ============================================================
+// UI LOGIN — initialisation selon mode auto/select
+// ============================================================
+function selectJour(jid) {
+  JOUR_COURANT = jid;
+  document.querySelectorAll('.jour-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.jour === jid);
+  });
+}
 
+(function initLogin() {
   if (MODE_AUTO) {
-    // Période événement : jour affiché, pas de sélecteur
+    const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
     document.getElementById('loginJourLabel').textContent =
       `${jourInfo.label} — ${jourInfo.date}`;
     document.getElementById('jourSelectorGroup').style.display = 'none';
   } else {
-    // Hors période : sélecteur de jour visible
     document.getElementById('loginJourLabel').textContent = 'Mode démo — choisissez le jour';
     document.getElementById('jourSelectorGroup').style.display = 'block';
-    // Mettre à jour JOUR_COURANT quand le select change
-    document.getElementById('inputJour').addEventListener('change', function() {
-      JOUR_COURANT = this.value;
-    });
+    JOUR_COURANT = 'J1'; // défaut
   }
 })();
 
@@ -602,10 +612,7 @@ async function acceder() {
   const psVal = parseInt(document.getElementById('inputPS').value);
   const errEl = document.getElementById('errMsg');
 
-  // En mode select (hors période), récupérer le jour choisi
-  if (!MODE_AUTO) {
-    JOUR_COURANT = document.getElementById('inputJour').value;
-  }
+  // En mode select (hors période), JOUR_COURANT déjà mis à jour par selectJour()
 
   errEl.textContent = '';
   document.getElementById('inputPS').classList.remove('error');
