@@ -636,7 +636,7 @@ function retour() {
 // ============================================================
 // RENDU FICHE
 // ============================================================
-function afficherFiche(psNum, jourId) {
+function afficherFiche(psNum, jourId, d) {
   const jour = JOURS.find(j => j.id === jourId);
   document.getElementById('ficheNumPS').textContent = psNum;
   document.getElementById('ficheJourChip').textContent = jour.label;
@@ -982,9 +982,8 @@ function afficherFicheFromSheets(psNum, jourId, d) {
     });
   }
 
-  afficherFiche(psNum, jourId);
+  afficherFiche(psNum, jourId, d);
 }
 </script>
 </body>
 </html>
-
