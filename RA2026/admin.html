@@ -313,6 +313,31 @@ main {
     </div>
   </div>
 
+  <!-- PANNEAU CONFIGURATION -->
+  <div class="card" id="cardConfig">
+    <div class="card-header">⚙ Paramètres de l'événement — ROC D'AZUR 2026</div>
+    <div class="card-body">
+      <div class="info-box" style="margin-bottom:16px">
+        Ces valeurs sont stockées dans l'onglet <strong>CONFIG</strong> de Google Sheets
+        et s'appliquent automatiquement à <strong>saisie.html</strong> au prochain chargement.
+        Aucun changement de code nécessaire.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px" id="configFields">
+        <!-- Chargé dynamiquement -->
+        <div style="grid-column:span 2;color:var(--texte2);font-size:13px;font-style:italic">
+          ⏳ Chargement des paramètres depuis Sheets…
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-success" onclick="saveConfig()" id="btnSaveConfig">💾 Sauvegarder les paramètres</button>
+        <button class="btn btn-ghost" onclick="loadConfig()">↺ Recharger</button>
+        <span id="configStatus" style="font-size:12px;color:var(--texte2)"></span>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -544,6 +569,88 @@ function resetAll() {
   document.getElementById('progressBar').style.width = '0%';
   setStep(1);
 }
+
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const CONFIG_PARAMS = [
+  { key: 'NB_VEHICULES', label: 'Nombre max de véhicules',    min: 1,  max: 50, unit: 'véhicules' },
+  { key: 'MAX_COM',      label: 'Radios COM (maximum)',        min: 1,  max: 99, unit: 'radios' },
+  { key: 'MAX_CRS',      label: 'Radios CRS — Courses (max)', min: 1,  max: 99, unit: 'radios' },
+  { key: 'MAX_CMV',      label: 'Radios CMV — Com Véh. (max)',min: 1,  max: 99, unit: 'radios' },
+];
+
+const CONFIG_DEFAULTS = { NB_VEHICULES: 25, MAX_COM: 20, MAX_CRS: 15, MAX_CMV: 10 };
+
+async function loadConfig() {
+  const status = document.getElementById('configStatus');
+  status.textContent = '⏳ Chargement…';
+  try {
+    const result = await callAS({ action: 'getConfig' });
+    if (!result.ok) throw new Error(result.error);
+    renderConfigFields(result.data);
+    status.textContent = '✓ Paramètres chargés depuis Sheets';
+    status.style.color = 'var(--vert)';
+  } catch(e) {
+    // Fallback sur valeurs par défaut
+    renderConfigFields(CONFIG_DEFAULTS);
+    status.textContent = '⚠ Sheets inaccessible — valeurs par défaut affichées';
+    status.style.color = 'var(--orange)';
+  }
+}
+
+function renderConfigFields(cfg) {
+  const container = document.getElementById('configFields');
+  container.innerHTML = CONFIG_PARAMS.map(p => `
+    <div>
+      <label style="display:block;font-family:'Barlow Condensed',sans-serif;
+        font-size:11px;font-weight:700;letter-spacing:1px;color:var(--texte2);
+        text-transform:uppercase;margin-bottom:6px">${p.label}</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" id="cfg_${p.key}"
+          value="${cfg[p.key] ?? CONFIG_DEFAULTS[p.key]}"
+          min="${p.min}" max="${p.max}"
+          style="width:80px;padding:8px 10px;border-radius:6px;
+            background:var(--input-bg);border:1px solid var(--border);
+            color:var(--texte);font-family:'Barlow Condensed',sans-serif;
+            font-size:18px;font-weight:700;text-align:center">
+        <span style="font-size:12px;color:var(--texte2)">${p.unit}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function saveConfig() {
+  const btn = document.getElementById('btnSaveConfig');
+  const status = document.getElementById('configStatus');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sauvegarde…';
+  status.textContent = '';
+
+  const data = {};
+  CONFIG_PARAMS.forEach(p => {
+    const val = parseInt(document.getElementById(`cfg_${p.key}`)?.value);
+    if (!isNaN(val)) data[p.key] = val;
+  });
+
+  try {
+    const result = await callAS({
+      action: 'saveConfig',
+      data: JSON.stringify(data),
+    });
+    if (!result.ok) throw new Error(result.error);
+    status.textContent = `✓ ${result.data.updated} paramètre(s) sauvegardés dans Sheets`;
+    status.style.color = 'var(--vert)';
+    renderConfigFields(result.data.config);
+  } catch(e) {
+    status.textContent = '✗ Erreur : ' + e.message;
+    status.style.color = 'var(--rouge)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Sauvegarder les paramètres';
+  }
+}
+
+// Charger la config au démarrage
+loadConfig();
 </script>
 </body>
 </html>
