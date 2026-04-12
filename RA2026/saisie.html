@@ -757,7 +757,9 @@
     body.print-gaillarde .glrd-btn-del,
     body.print-gaillarde .btn-close,
     body.print-gaillarde .btn-fiche-print,
-    body.print-gaillarde #glrdBenvSelect { display: none !important; }
+    body.print-gaillarde #glrdBenvSelect,
+    body.print-gaillarde [for="glrdBenvSelect"],
+    body.print-gaillarde .glrd-benv-selector { display: none !important; }
     body.print-gaillarde .glrd-tab-content.active { display: block !important; padding: 0; }
     body.print-gaillarde .glrd-fiche { page-break-after: always; }
     body.print-gaillarde .glrd-fiche:last-child { page-break-after: avoid; }
@@ -1709,6 +1711,27 @@ function openGaillarde() {
   glrdChargerJour();
 }
 
+function glrdToast(msg, type='ok') {
+  // Toast affiché dans l'overlay Gaillarde
+  let el = document.getElementById('glrdToastEl');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'glrdToastEl';
+    el.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:500;
+      padding:10px 18px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;
+      font-size:15px;font-weight:700;letter-spacing:0.5px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.4);transition:opacity 0.3s;`;
+    document.body.appendChild(el);
+  }
+  const colors = { ok:'#27AE60', err:'#C0392B', warn:'#E67E22' };
+  el.style.background = colors[type] || colors.ok;
+  el.style.color = '#fff';
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 3500);
+}
+
 function closeGaillarde() {
   document.getElementById('glrdOverlay').classList.remove('active');
 }
@@ -1957,12 +1980,12 @@ async function glrdSauvegarder() {
       data: JSON.stringify(rows),
     });
     if (result.ok) {
-      toast(`LA_GAILLARDE ${glrdJour} — ${result.data.saved} PS sauvegardés ✓`);
+      glrdToast(`LA_GAILLARDE ${glrdJour} — ${result.data.saved} PS sauvegardés ✓`, 'ok');
     } else {
-      toast('Erreur sauvegarde LA_GAILLARDE : ' + result.error, 'err');
+      glrdToast('Erreur sauvegarde : ' + result.error, 'err');
     }
   } catch(e) {
-    toast('Timeout sauvegarde — réessayer', 'warn');
+    glrdToast('Timeout — vérifie la connexion et réessaie', 'warn');
   } finally {
     btn.textContent = '💾 Sauvegarder'; btn.disabled = false;
   }
@@ -2076,17 +2099,16 @@ function glrdFicheHTML(r, jourInfo) {
           <span class="glrd-fiche-label">Radio(s)</span>
           <span class="glrd-fiche-val">${radios || '—'}</span>
         </div>
-        <div class="glrd-fiche-row">
-          <span class="glrd-fiche-label">1er Participant</span>
-          <span class="glrd-fiche-val">${r.PREMIER_PART ? 'vers ' + r.PREMIER_PART : '—'}</span>
-        </div>
-
         ${courses.length ? `
         <div class="glrd-fiche-section">🏁 Courses du jour</div>
         ${courses.map((c,i) => `<div class="glrd-fiche-row">
           <span class="glrd-fiche-label">Course ${i+1}</span>
           <span class="glrd-fiche-val">${c}</span>
         </div>`).join('')}` : ''}
+        <div class="glrd-fiche-row">
+          <span class="glrd-fiche-label">1er Participant</span>
+          <span class="glrd-fiche-val">${r.PREMIER_PART ? 'vers ' + r.PREMIER_PART : '—'}</span>
+        </div>
 
         <div class="glrd-fiche-section">🚨 Urgences</div>
         <div class="glrd-fiche-row">
@@ -2690,6 +2712,19 @@ function callAS(params) {
   });
 }
 
+// Retry automatique — disponible globalement
+async function callASRetry(params, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await callAS(params);
+    } catch(e) {
+      if (attempt === maxRetries) throw e;
+      console.warn(`Tentative ${attempt} échouée, retry…`, e.message);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+}
+
 // Charge les référentiels depuis Sheets au démarrage
 async function loadReferentiels() {
   if (!SHEETS_ENABLED) return;
@@ -2722,11 +2757,17 @@ async function loadReferentiels() {
     }
 
     if (d.ps && d.ps.length) {
+      // Sauvegarder LA_GAILLARDE avant effacement (peut ne pas être dans REF_PS)
+      const glrdPS = PS_SECTEUR['LA_GAILLARDE'] ? [...PS_SECTEUR['LA_GAILLARDE']] : [];
       Object.keys(PS_SECTEUR).forEach(k => delete PS_SECTEUR[k]);
       d.ps.forEach(p => {
         if (!PS_SECTEUR[p.secteur]) PS_SECTEUR[p.secteur] = [];
         PS_SECTEUR[p.secteur].push(`${p.num} - ${p.lieudit}`);
       });
+      // Restaurer LA_GAILLARDE si non fournie par Sheets
+      if (!PS_SECTEUR['LA_GAILLARDE'] && glrdPS.length) {
+        PS_SECTEUR['LA_GAILLARDE'] = glrdPS;
+      }
     }
     if (d.courses && d.courses.length) {
       Object.keys(COURSES).forEach(k => delete COURSES[k]);
@@ -2801,19 +2842,6 @@ async function saveToSheets() {
 
   const btn = document.querySelector('.btn-pdf');
   if (btn) { btn.textContent = '⏳ Envoi…'; btn.disabled = true; }
-
-  // Fonction callAS avec retry automatique (max 2 tentatives)
-  async function callASRetry(params, maxRetries = 2) {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await callAS(params);
-      } catch(e) {
-        if (attempt === maxRetries) throw e;
-        console.warn(`Tentative ${attempt} échouée, retry…`, e.message);
-        await new Promise(r => setTimeout(r, 2000)); // attendre 2s avant retry
-      }
-    }
-  }
 
   try {
     const secteurs = state[currentJour] || [];
@@ -3057,7 +3085,7 @@ document.getElementById('fichesPSOverlay').addEventListener('click', function(e)
 
     <!-- TAB FICHES DE POSTE -->
     <div class="glrd-tab-content" id="glrdTabFiches">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="glrd-benv-selector" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <label style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
           letter-spacing:1px;text-transform:uppercase;color:#888">Sélectionner bénévole :</label>
         <select id="glrdBenvSelect" onchange="glrdRenderFiches()"
@@ -3081,4 +3109,3 @@ document.getElementById('fichesPSOverlay').addEventListener('click', function(e)
 </div>
 </body>
 </html>
-
