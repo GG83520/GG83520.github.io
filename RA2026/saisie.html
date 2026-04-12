@@ -1837,161 +1837,107 @@ function glrdRenderSaisie() {
   const list = document.getElementById('glrdPSList');
 
   if (!rows.length) {
-    list.innerHTML = `<div style="padding:20px;text-align:center;color:#aaa;font-style:italic">
-      Aucun PS saisi pour ${glrdJour} — cliquer "+ Ajouter un PS"</div>`;
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#aaa;font-style:italic">Aucun PS saisi pour ' + glrdJour + ' — cliquer &quot;+ Ajouter un PS&quot;</div>';
     return;
   }
 
-  list.innerHTML = rows.map((r, idx) => `
-    <div class="glrd-ps-card">
-      <div class="glrd-ps-header">
-        <span>PS ${idx+1}</span>
-        <select onchange="glrdUpdate(${idx},'NUM_PS',this.value);glrdUpdate(${idx},'LIEU_DIT',this.options[this.selectedIndex].text.replace(/^[^-]*-\\s*/,''))"
-          style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:4px;
-            padding:3px 8px;font-weight:700;font-size:13px;flex:1;max-width:400px">
-          ${glrdPSOpts(r.NUM_PS)}
-        </select>
-        <button class="glrd-btn-del" onclick="glrdDelPS(${idx})">✕ Supprimer</button>
-      </div>
+  // Générer le HTML sans le select PS (les backticks imbriqués causaient un bug)
+  let html = '';
+  rows.forEach((r, idx) => {
+    html += '<div class="glrd-ps-card">';
 
-      <div class="glrd-section-label">👤 Signaleurs</div>
-      <div class="glrd-grid glrd-grid-4" style="padding:10px 14px">
-        <div class="glrd-field">
-          <label>Signaleur Référent</label>
-          <select onchange="glrdUpdate(${idx},'REFERENT',this.value)">
-            ${glrdBenvOpts(r.REFERENT)}
-          </select>
-        </div>
-        <div class="glrd-field">
-          <label>Accompagnant 1</label>
-          <select onchange="glrdUpdate(${idx},'ACC_1',this.value)">
-            ${glrdBenvOpts(r.ACC_1)}
-          </select>
-        </div>
-        <div class="glrd-field">
-          <label>Accompagnant 2</label>
-          <select onchange="glrdUpdate(${idx},'ACC_2',this.value)">
-            ${glrdBenvOpts(r.ACC_2)}
-          </select>
-        </div>
-        <div class="glrd-field">
-          <label>Accompagnant 3</label>
-          <select onchange="glrdUpdate(${idx},'ACC_3',this.value)">
-            ${glrdBenvOpts(r.ACC_3)}
-          </select>
-        </div>
-      </div>
+    // En-tête avec select PS vide (peuplé après)
+    html += '<div class="glrd-ps-header">';
+    html += '<span>PS ' + (idx+1) + '</span>';
+    html += '<select id="glrd-ps-select-' + idx + '" onchange="glrdUpdate(' + idx + ',\'NUM_PS\',this.value)" ';
+    html += 'style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:4px;padding:3px 8px;font-weight:700;font-size:13px;flex:1;max-width:400px">';
+    html += '</select>';
+    html += '<button class="glrd-btn-del" onclick="glrdDelPS(' + idx + ')">✕ Supprimer</button>';
+    html += '</div>';
 
-      <div class="glrd-section-label">🚗 Véhicules & Radios</div>
-      <div class="glrd-grid glrd-grid-3" style="padding:10px 14px">
-        <div class="glrd-field">
-          <label>Véhicule A</label>
-          <select onchange="glrdUpdate(${idx},'VEH_A',this.value)">${glrdVehOpts(r.VEH_A)}</select>
-        </div>
-        <div class="glrd-field">
-          <label>Véhicule B</label>
-          <select onchange="glrdUpdate(${idx},'VEH_B',this.value)">${glrdVehOpts(r.VEH_B)}</select>
-        </div>
-        <div class="glrd-field">
-          <label>Radios</label>
-          <div class="glrd-radio-row">
-            <span style="font-size:10px;color:#1A5276;font-weight:700">COM</span>
-            <input type="number" min="0" max="9" value="${r.NB_COM||0}"
-              onchange="glrdUpdate(${idx},'NB_COM',+this.value)"
-              style="color:#1A5276;border-color:rgba(41,128,185,0.4)">
-            <span style="font-size:10px;color:#006064;font-weight:700">CRS</span>
-            <input type="number" min="0" max="9" value="${r.NB_CRS||0}"
-              onchange="glrdUpdate(${idx},'NB_CRS',+this.value)"
-              style="color:#006064;border-color:rgba(0,188,212,0.4)">
-            <span style="font-size:10px;color:#1E8449;font-weight:700">CMV</span>
-            <input type="number" min="0" max="9" value="${r.NB_CMV||0}"
-              onchange="glrdUpdate(${idx},'NB_CMV',+this.value)"
-              style="color:#1E8449;border-color:rgba(39,174,96,0.4)">
-          </div>
-        </div>
-      </div>
+    // Signaleurs
+    html += '<div class="glrd-section-label">👤 Signaleurs</div>';
+    html += '<div class="glrd-grid glrd-grid-4" style="padding:10px 14px">';
+    html += glrdFieldSelect('Signaleur Référent', idx, 'REFERENT', r.REFERENT, glrdBenvOpts(r.REFERENT));
+    html += glrdFieldSelect('Accompagnant 1', idx, 'ACC_1', r.ACC_1, glrdBenvOpts(r.ACC_1));
+    html += glrdFieldSelect('Accompagnant 2', idx, 'ACC_2', r.ACC_2, glrdBenvOpts(r.ACC_2));
+    html += glrdFieldSelect('Accompagnant 3', idx, 'ACC_3', r.ACC_3, glrdBenvOpts(r.ACC_3));
+    html += '</div>';
 
-      <div class="glrd-section-label">🚩 Mise en place</div>
-      <div class="glrd-grid glrd-grid-3" style="padding:10px 14px">
-        <div class="glrd-field">
-          <label>Mise en place par</label>
-          <select onchange="glrdUpdate(${idx},'MEP_PAR',this.value)">${glrdRefOpts(r.MEP_PAR)}</select>
-        </div>
-        <div class="glrd-field">
-          <label>Lieu MeP (saisie)</label>
-          <input type="text" value="${r.MEP_LIEU||''}" placeholder="ex: Parking Fournel"
-            oninput="glrdUpdate(${idx},'MEP_LIEU',this.value)">
-        </div>
-        <div class="glrd-field">
-          <label>H MeP</label>
-          <select onchange="glrdUpdate(${idx},'HMEP',this.value)">${glrdHeurOpts(r.HMEP)}</select>
-        </div>
-      </div>
+    // Véhicules & Radios
+    html += '<div class="glrd-section-label">🚗 Véhicules & Radios</div>';
+    html += '<div class="glrd-grid glrd-grid-3" style="padding:10px 14px">';
+    html += glrdFieldSelect('Véhicule A', idx, 'VEH_A', r.VEH_A, glrdVehOpts(r.VEH_A));
+    html += glrdFieldSelect('Véhicule B', idx, 'VEH_B', r.VEH_B, glrdVehOpts(r.VEH_B));
+    html += '<div class="glrd-field"><label>Radios</label><div class="glrd-radio-row">';
+    html += '<span style="font-size:10px;color:#1A5276;font-weight:700">COM</span>';
+    html += '<input type="number" min="0" max="9" value="' + (r.NB_COM||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_COM\',+this.value)" style="width:60px;text-align:center;font-weight:700;font-size:14px;color:#1A5276;border-color:rgba(41,128,185,0.4)">';
+    html += '<span style="font-size:10px;color:#006064;font-weight:700">CRS</span>';
+    html += '<input type="number" min="0" max="9" value="' + (r.NB_CRS||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_CRS\',+this.value)" style="width:60px;text-align:center;font-weight:700;font-size:14px;color:#006064;border-color:rgba(0,188,212,0.4)">';
+    html += '<span style="font-size:10px;color:#1E8449;font-weight:700">CMV</span>';
+    html += '<input type="number" min="0" max="9" value="' + (r.NB_CMV||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_CMV\',+this.value)" style="width:60px;text-align:center;font-weight:700;font-size:14px;color:#1E8449;border-color:rgba(39,174,96,0.4)">';
+    html += '</div></div></div>';
 
-      <div class="glrd-section-label">📍 Distances</div>
-      <div class="glrd-grid" style="padding:10px 14px">
-        <div class="glrd-field">
-          <label>Ravitaillement (Kms)</label>
-          <input type="text" value="${r.KM_RAVIT||''}" placeholder="ex: 3.5"
-            oninput="glrdUpdate(${idx},'KM_RAVIT',this.value)">
-        </div>
-        <div class="glrd-field">
-          <label>Assistance / Atelier (Kms)</label>
-          <input type="text" value="${r.KM_ATELIER||''}" placeholder="ex: 7.2"
-            oninput="glrdUpdate(${idx},'KM_ATELIER',this.value)">
-        </div>
-      </div>
+    // Mise en place
+    html += '<div class="glrd-section-label">🚩 Mise en place</div>';
+    html += '<div class="glrd-grid glrd-grid-3" style="padding:10px 14px">';
+    html += glrdFieldSelect('Mise en place par', idx, 'MEP_PAR', r.MEP_PAR, glrdRefOpts(r.MEP_PAR));
+    html += '<div class="glrd-field"><label>Lieu MeP (saisie)</label>';
+    html += '<input type="text" value="' + (r.MEP_LIEU||'').replace(/"/g,'&quot;') + '" placeholder="ex: Parking Fournel" oninput="glrdUpdate(' + idx + ',\'MEP_LIEU\',this.value)"></div>';
+    html += glrdFieldSelect('H MeP', idx, 'HMEP', r.HMEP, glrdHeurOpts(r.HMEP));
+    html += '</div>';
 
-      <div class="glrd-section-label">🏁 Courses du jour & 1er Participant</div>
-      <div class="glrd-grid glrd-grid-4" style="padding:10px 14px">
-        ${[1,2,3].map(n => `
-        <div class="glrd-field">
-          <label>Course ${n}</label>
-          <input type="text" value="${r['COURSE_'+n]||''}" placeholder="Nom course ${n}…"
-            oninput="glrdUpdate(${idx},'COURSE_${n}',this.value)">
-        </div>`).join('')}
-        <div class="glrd-field">
-          <label>1er Participant vers</label>
-          <select onchange="glrdUpdate(${idx},'PREMIER_PART',this.value)">${glrdHeurOpts(r.PREMIER_PART)}</select>
-        </div>
-      </div>
+    // Distances
+    html += '<div class="glrd-section-label">📍 Distances</div>';
+    html += '<div class="glrd-grid" style="padding:10px 14px">';
+    html += '<div class="glrd-field"><label>Ravitaillement (Kms)</label>';
+    html += '<input type="text" value="' + (r.KM_RAVIT||'') + '" placeholder="ex: 3.5" oninput="glrdUpdate(' + idx + ',\'KM_RAVIT\',this.value)"></div>';
+    html += '<div class="glrd-field"><label>Assistance / Atelier (Kms)</label>';
+    html += '<input type="text" value="' + (r.KM_ATELIER||'') + '" placeholder="ex: 7.2" oninput="glrdUpdate(' + idx + ',\'KM_ATELIER\',this.value)"></div>';
+    html += '</div>';
 
-      <div class="glrd-section-label">📝 Commentaires</div>
-      <div style="padding:10px 14px;display:flex;flex-direction:column;gap:6px">
-        ${['A','B','C'].map(l => `
-        <div class="glrd-field" style="display:flex;align-items:center;gap:8px">
-          <label style="min-width:20px;margin:0">${l}</label>
-          <input type="text" value="${r['COMM_'+l]||''}" placeholder="Commentaire ${l}…"
-            oninput="glrdUpdate(${idx},'COMM_${l}',this.value)" style="flex:1">
-        </div>`).join('')}
-      </div>
-    </div>
-  `).join('');
-}
-
-async function glrdSauvegarder() {
-  const btn = document.getElementById('glrdBtnSave');
-  btn.textContent = '⏳ Envoi…'; btn.disabled = true;
-  const rows = glrdState[glrdJour] || [];
-  try {
-    const result = await callASRetry({
-      action: 'saveSaisieGaillarde',
-      jour: glrdJour,
-      data: JSON.stringify(rows),
+    // Courses + 1er Participant
+    html += '<div class="glrd-section-label">🏁 Courses du jour & 1er Participant</div>';
+    html += '<div class="glrd-grid glrd-grid-4" style="padding:10px 14px">';
+    [1,2,3].forEach(n => {
+      html += '<div class="glrd-field"><label>Course ' + n + '</label>';
+      html += '<input type="text" value="' + (r['COURSE_'+n]||'').replace(/"/g,'&quot;') + '" placeholder="Nom course ' + n + '…" oninput="glrdUpdate(' + idx + ',\'COURSE_' + n + '\',this.value)"></div>';
     });
-    if (result.ok) {
-      glrdToast(`LA_GAILLARDE ${glrdJour} — ${result.data.saved} PS sauvegardés ✓`, 'ok');
-    } else {
-      glrdToast('Erreur sauvegarde : ' + result.error, 'err');
-    }
-  } catch(e) {
-    glrdToast('Timeout — vérifie la connexion et réessaie', 'warn');
-  } finally {
-    btn.textContent = '💾 Sauvegarder'; btn.disabled = false;
-  }
+    html += glrdFieldSelect('1er Participant vers', idx, 'PREMIER_PART', r.PREMIER_PART, glrdHeurOpts(r.PREMIER_PART));
+    html += '</div>';
+
+    // Commentaires
+    html += '<div class="glrd-section-label">📝 Commentaires</div>';
+    html += '<div style="padding:10px 14px;display:flex;flex-direction:column;gap:6px">';
+    ['A','B','C'].forEach(l => {
+      html += '<div class="glrd-field" style="display:flex;align-items:center;gap:8px">';
+      html += '<label style="min-width:20px;margin:0">' + l + '</label>';
+      html += '<input type="text" value="' + (r['COMM_'+l]||'').replace(/"/g,'&quot;') + '" placeholder="Commentaire ' + l + '…" oninput="glrdUpdate(' + idx + ',\'COMM_' + l + '\',this.value)" style="flex:1"></div>';
+    });
+    html += '</div>';
+
+    html += '</div>'; // glrd-ps-card
+  });
+
+  list.innerHTML = html;
+
+  // Peupler les selects PS APRÈS le rendu DOM
+  rows.forEach((r, idx) => {
+    const sel = document.getElementById('glrd-ps-select-' + idx);
+    if (!sel) return;
+    const psList = PS_SECTEUR['LA_GAILLARDE'] || [];
+    sel.innerHTML = '<option value="">— PS —</option>' +
+      psList.map(p => '<option value="' + p + '"' + (p === r.NUM_PS ? ' selected' : '') + '>' + p + '</option>').join('');
+  });
 }
 
-// ── FICHES DE POSTE ───────────────────────────────────────────────────────────
+// Helper champ select
+function glrdFieldSelect(label, idx, field, value, opts) {
+  return '<div class="glrd-field"><label>' + label + '</label>' +
+    '<select onchange="glrdUpdate(' + idx + ',\'' + field + '\',this.value)">' + opts + '</select></div>';
+}
+
+
 function glrdRenderFiches() {
   const rows = glrdState[glrdJour] || [];
   const jourInfo = JOURS.find(j => j.id === glrdJour);
