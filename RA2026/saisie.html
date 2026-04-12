@@ -1850,7 +1850,7 @@ function glrdRenderSaisie() {
     html += '<div class="glrd-ps-header">';
     html += '<span>PS ' + (idx+1) + '</span>';
     html += '<select id="glrd-ps-select-' + idx + '" onchange="glrdUpdate(' + idx + ',\'NUM_PS\',this.value)" ';
-    html += 'style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:4px;padding:3px 8px;font-weight:700;font-size:13px;flex:1;max-width:400px">';
+    html += 'style="background:#0F2744;color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:4px;padding:4px 8px;font-weight:700;font-size:13px;flex:1;max-width:400px">';
     html += '</select>';
     html += '<button class="glrd-btn-del" onclick="glrdDelPS(' + idx + ')">✕ Supprimer</button>';
     html += '</div>';
@@ -1884,7 +1884,7 @@ function glrdRenderSaisie() {
     html += glrdFieldSelect('Mise en place par', idx, 'MEP_PAR', r.MEP_PAR, glrdRefOpts(r.MEP_PAR));
     html += '<div class="glrd-field"><label>Lieu MeP (saisie)</label>';
     html += '<input type="text" value="' + (r.MEP_LIEU||'').replace(/"/g,'&quot;') + '" placeholder="ex: Parking Fournel" oninput="glrdUpdate(' + idx + ',\'MEP_LIEU\',this.value)"></div>';
-    html += glrdFieldSelect('H MeP', idx, 'HMEP', r.HMEP, glrdHeurOpts(r.HMEP));
+    html += glrdFieldSelect('Heure RDV MeP', idx, 'HMEP', r.HMEP, glrdHeurOpts(r.HMEP));
     html += '</div>';
 
     // Distances
