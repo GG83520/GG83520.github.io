@@ -280,7 +280,7 @@
   .radio-num:focus { outline: none; border-color: var(--rouge); background: var(--input-focus); }
   .radio-num.has-value { color: var(--vert); border-color: rgba(39,174,96,0.4); }
   .radio-num.com.has-value { color: #7EC8E3; border-color: rgba(41,128,185,0.4); }
-  .radio-num.crs.has-value { color: #F1948A; border-color: rgba(192,57,43,0.4); }
+  .radio-num.crs.has-value { color: #00BCD4; border-color: rgba(0,188,212,0.4); }
   .radio-num.cmv.has-value { color: #82E0AA; border-color: rgba(39,174,96,0.4); }
 
   /* row-ajouter */
@@ -2077,6 +2077,19 @@ async function loadReferentiels() {
         COURSES[c.nom] = { jours: c.jours, ps: c.ps, couleur: c.couleur };
       });
     }
+
+    // Mettre à jour RADIO_MAX depuis la config Sheets
+    if (d.config) {
+      if (d.config.MAX_COM) RADIO_MAX.com = d.config.MAX_COM;
+      if (d.config.MAX_CRS) RADIO_MAX.crs = d.config.MAX_CRS;
+      if (d.config.MAX_CMV) RADIO_MAX.cmv = d.config.MAX_CMV;
+    } else if (d.radioMax) {
+      // Fallback ancien format
+      if (d.radioMax.com) RADIO_MAX.com = d.radioMax.com;
+      if (d.radioMax.crs) RADIO_MAX.crs = d.radioMax.crs;
+      if (d.radioMax.cmv) RADIO_MAX.cmv = d.radioMax.cmv;
+    }
+
     hideLoadingBanner();
     // Re-render complet pour que les listes déroulantes (référants, PS) soient à jour
     renderAll();
