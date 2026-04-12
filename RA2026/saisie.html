@@ -326,7 +326,7 @@
     transition: all 0.2s;
   }
   .radio-stat-pill.com { background: rgba(41,128,185,0.15); border-color: rgba(88,166,255,0.3); color: #7EC8E3; }
-  .radio-stat-pill.crs { background: rgba(192,57,43,0.15); border-color: rgba(231,76,60,0.3); color: #F1948A; }
+  .radio-stat-pill.crs { background: rgba(0,150,136,0.15); border-color: rgba(0,188,212,0.4); color: #00BCD4; }
   .radio-stat-pill.cmv { background: rgba(39,174,96,0.15); border-color: rgba(63,185,80,0.3); color: #82E0AA; }
   .radio-stat-pill.over { background: rgba(231,76,60,0.3); border-color: var(--rouge-vif); color: #fff; animation: pulse-warn 1s infinite; }
   @keyframes pulse-warn { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
@@ -429,7 +429,7 @@
     padding: 2px 6px; border-radius: 3px; margin: 1px;
   }
   .radio-pill.com { background: rgba(41,128,185,0.3); color: #7EC8E3; }
-  .radio-pill.crs { background: rgba(192,57,43,0.3); color: #F1948A; }
+  .radio-pill.crs { background: rgba(0,150,136,0.25); color: #00E5FF; }
   .radio-pill.cmv { background: rgba(39,174,96,0.3); color: #82E0AA; }
   .btn-print {
     background: var(--rouge); color: #fff;
@@ -659,7 +659,7 @@
   .fs-table tr:nth-child(even) td { background: #F8F9FA; }
   .fs-radio-pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin: 1px; }
   .fs-radio-pill.com { background: #D6EAF8; color: #1A5276; }
-  .fs-radio-pill.crs { background: #FADBD8; color: #922B21; }
+  .fs-radio-pill.crs { background: #E0F7FA; color: #006064; }
   .fs-radio-pill.cmv { background: #D5F5E3; color: #1E8449; }
   .fs-course-tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; margin: 1px; background: #E8DAEF; color: #6C3483; }
   .fs-empty { color: #aaa; font-style: italic; text-align: center; padding: 20px; }
@@ -813,8 +813,10 @@ const REFERANTS = [
 const VEHICULES = [
   'JIMNY','MITSU','PANDA','R5','R6','R7','R8','R9',
   'V PERSO ALAIN','V PERSO RUBIO','V PERSO MARCO',
-  'TOYOTA FRANCIS','PETIT LAND','MOTO','QUAD','SPRINTER'
-];
+  'TOYOTA FRANCIS','PETIT LAND','MOTO','QUAD','SPRINTER',
+  'VEH_17','VEH_18','VEH_19','VEH_20','VEH_21',
+  'VEH_22','VEH_23','VEH_24','VEH_25',
+]; // 25 véhicules (provision — remplacer les VEH_XX par les vrais noms)
 
 const HEURES_MEP = [
   '5h45','6h00','6h15','6h30','6h45','7h00','7h15','7h30',
@@ -1393,6 +1395,27 @@ function checkConflicts() {
   });
 
   document.getElementById('alertsBar').innerHTML = alerts.join('');
+
+  // Ad : BIP sonore si nouvelles alertes
+  if (alerts.length > 0) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const bip = (freq, start, dur) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = freq;
+        o.type = 'sine';
+        g.gain.setValueAtTime(0.3, ctx.currentTime + start);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+        o.start(ctx.currentTime + start);
+        o.stop(ctx.currentTime + start + dur);
+      };
+      // Double bip court et aigu pour attirer l'attention
+      bip(880, 0,    0.12);
+      bip(880, 0.16, 0.12);
+    } catch(e) {} // silencieux si AudioContext non supporté
+  }
 }
 
 // ========================================================
@@ -1994,8 +2017,8 @@ function callAS(params) {
     const cbName = 'cb_' + Math.random().toString(36).slice(2);
     const timeout = setTimeout(() => {
       delete window[cbName];
-      reject(new Error('Timeout'));
-    }, 15000);
+      reject(new Error('Timeout (45s) — connexion lente ?'));
+    }, 45000); // 45s pour ADSL
     window[cbName] = (data) => {
       clearTimeout(timeout);
       delete window[cbName];
@@ -2006,7 +2029,7 @@ function callAS(params) {
     s.src    = `${APPS_SCRIPT_URL}?${qs}`;
     s.onerror = () => { clearTimeout(timeout); delete window[cbName]; reject(new Error('Script error')); };
     document.head.appendChild(s);
-    setTimeout(() => s.remove(), 20000);
+    setTimeout(() => s.remove(), 50000);
   });
 }
 
@@ -2101,7 +2124,7 @@ async function loadSaisieFromSheets(jour) {
   }
 }
 
-// Sauvegarde vers Sheets via JSONP — un secteur à la fois pour rester sous la limite URL
+// Sauvegarde vers Sheets via JSONP — 1 PS à la fois + retry automatique (robuste ADSL)
 async function saveToSheets() {
   try { localStorage.setItem('ra2026_saisie', JSON.stringify(state)); } catch(e) {}
   if (!SHEETS_ENABLED) { toast('Brouillon local sauvegardé ✓'); return; }
@@ -2109,34 +2132,63 @@ async function saveToSheets() {
   const btn = document.querySelector('.btn-pdf');
   if (btn) { btn.textContent = '⏳ Envoi…'; btn.disabled = true; }
 
+  // Fonction callAS avec retry automatique (max 2 tentatives)
+  async function callASRetry(params, maxRetries = 2) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await callAS(params);
+      } catch(e) {
+        if (attempt === maxRetries) throw e;
+        console.warn(`Tentative ${attempt} échouée, retry…`, e.message);
+        await new Promise(r => setTimeout(r, 2000)); // attendre 2s avant retry
+      }
+    }
+  }
+
   try {
     const secteurs = state[currentJour] || [];
-    let totalUpdated = 0, totalInserted = 0;
+    let totalUpdated = 0, totalInserted = 0, errors = 0;
 
-    // Sauvegarde secteur par secteur (évite la limite de longueur d'URL)
     for (const s of secteurs) {
-      // 1. Lignes PS du secteur
-      const jsonSaisie = await callAS({
-        action: 'saveSaisie',
-        jour: currentJour,
-        data: JSON.stringify([s]), // un seul secteur à la fois
-      });
-      if (!jsonSaisie.ok) throw new Error(jsonSaisie.error);
-      totalUpdated  += jsonSaisie.data.updated  || 0;
-      totalInserted += jsonSaisie.data.inserted || 0;
+      // 1. Sauvegarde PS du secteur (1 secteur = appel unique)
+      try {
+        const jsonSaisie = await callASRetry({
+          action: 'saveSaisie',
+          jour: currentJour,
+          data: JSON.stringify([s]),
+        });
+        if (jsonSaisie.ok) {
+          totalUpdated  += jsonSaisie.data.updated  || 0;
+          totalInserted += jsonSaisie.data.inserted || 0;
+        } else {
+          errors++;
+          console.error('saveSaisie error:', jsonSaisie.error);
+        }
+      } catch(e) {
+        errors++;
+        console.error('saveSaisie timeout:', s.secteur, e.message);
+      }
 
       // 2. Commentaires du secteur
       if (s.commentaires && s.commentaires.some(Boolean)) {
-        await callAS({
-          action: 'saveCommentaires',
-          jour: currentJour,
-          secteur: s.secteur,
-          data: JSON.stringify(s.commentaires),
-        });
+        try {
+          await callASRetry({
+            action: 'saveCommentaires',
+            jour: currentJour,
+            secteur: s.secteur,
+            data: JSON.stringify(s.commentaires),
+          });
+        } catch(e) {
+          console.warn('saveCommentaires timeout:', s.secteur, e.message);
+        }
       }
     }
 
-    toast(`Sheets mis à jour ✓  (${totalUpdated} modifiés, ${totalInserted} nouveaux)`);
+    if (errors === 0) {
+      toast(`Sheets mis à jour ✓  (${totalUpdated} modifiés, ${totalInserted} nouveaux)`);
+    } else {
+      toast(`Sauvegarde partielle — ${errors} secteur(s) en erreur (brouillon local conservé)`, 'warn');
+    }
   } catch(e) {
     toast('Erreur envoi Sheets — brouillon local conservé', 'err');
     console.error('Sheets save error:', e);
