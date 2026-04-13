@@ -1803,6 +1803,7 @@ function glrdDelPS(idx) {
 function glrdUpdate(idx, field, val) {
   if (!glrdState[glrdJour]?.[idx]) return;
   glrdState[glrdJour][idx][field] = val;
+  glrdUpdateStats();
 }
 
 // PS filtrés secteur LA_GAILLARDE
@@ -1929,6 +1930,8 @@ function glrdRenderSaisie() {
     sel.innerHTML = '<option value="">— PS —</option>' +
       psList.map(p => '<option value="' + p + '"' + (p === r.NUM_PS ? ' selected' : '') + '>' + p + '</option>').join('');
   });
+
+  glrdUpdateStats();
 }
 
 // Helper champ select
@@ -1958,6 +1961,92 @@ async function glrdSauvegarder() {
     console.error('glrdSauvegarder error:', e);
   } finally {
     if (btn) { btn.textContent = '💾 Sauvegarder'; btn.disabled = false; }
+  }
+}
+
+function glrdUpdateStats() {
+  const rows = glrdState[glrdJour] || [];
+  const allRows = rows; // 1 objet = 1 PS
+
+  // Compteurs
+  let nbPS = 0, nbBenv = 0, totCOM = 0, totCRS = 0, totCMV = 0;
+  const vehCount = {}, benvCount = {};
+
+  allRows.forEach(r => {
+    if (!r.NUM_PS) return;
+    nbPS++;
+    totCOM += (r.NB_COM||0);
+    totCRS += (r.NB_CRS||0);
+    totCMV += (r.NB_CMV||0);
+    [r.REFERENT, r.ACC_1, r.ACC_2, r.ACC_3].forEach(b => {
+      if (!b) return;
+      nbBenv++;
+      benvCount[b] = (benvCount[b]||0) + 1;
+    });
+    if (r.VEH_A) vehCount[r.VEH_A] = (vehCount[r.VEH_A]||0) + 1;
+    if (r.VEH_B) vehCount[r.VEH_B] = (vehCount[r.VEH_B]||0) + 1;
+  });
+
+  // Stats bar
+  document.getElementById('glrdStatPS').textContent   = '● PS actifs : ' + nbPS;
+  document.getElementById('glrdStatBenv').textContent = '● Bénévoles : ' + nbBenv;
+  document.getElementById('glrdStatCOM').textContent  = 'COM ' + totCOM + '/' + RADIO_MAX.com;
+  document.getElementById('glrdStatCRS').textContent  = 'CRS ' + totCRS + '/' + RADIO_MAX.crs;
+  document.getElementById('glrdStatCMV').textContent  = 'CMV ' + totCMV + '/' + RADIO_MAX.cmv;
+
+  // Couleur rouge si dépassement
+  document.getElementById('glrdStatCOM').style.color = totCOM > RADIO_MAX.com ? '#C0392B' : '#2980B9';
+  document.getElementById('glrdStatCRS').style.color = totCRS > RADIO_MAX.crs ? '#C0392B' : '#006064';
+  document.getElementById('glrdStatCMV').style.color = totCMV > RADIO_MAX.cmv ? '#C0392B' : '#1E8449';
+
+  // Alertes doublons
+  const alerts = [];
+
+  // Doublons bénévoles
+  Object.entries(benvCount).forEach(([b, cnt]) => {
+    if (cnt > 1) alerts.push(`⚠ Bénévole <strong>${b}</strong> affecté ${cnt}× sur ${glrdJour} LA_GAILLARDE`);
+  });
+
+  // Doublons véhicules dans LG
+  Object.entries(vehCount).forEach(([veh, cnt]) => {
+    if (cnt > 1) alerts.push(`🚗 Véhicule <strong>${veh}</strong> utilisé ${cnt}× dans LA_GAILLARDE`);
+  });
+
+  // Doublons véhicules cross-secteurs (LG vs Tous Secteurs)
+  const vehTousSecteurs = {};
+  (state[glrdJour] || []).forEach(s => {
+    if (s.secteur === 'LA_GAILLARDE') return; // déjà compté dans LG
+    s.rows.forEach(r => {
+      if (r.vehA) vehTousSecteurs[r.vehA] = s.secteur;
+      if (r.vehB) vehTousSecteurs[r.vehB] = s.secteur;
+    });
+  });
+  Object.keys(vehCount).forEach(veh => {
+    if (vehTousSecteurs[veh]) {
+      alerts.push(`🚗 Véhicule <strong>${veh}</strong> aussi dans secteur <strong>${vehTousSecteurs[veh]}</strong> — vérifier !`);
+    }
+  });
+
+  const bar = document.getElementById('glrdAlertsBar');
+  if (alerts.length) {
+    bar.style.display = 'block';
+    bar.innerHTML = alerts.map(a => `<div style="font-size:12px;padding:2px 0">${a}</div>`).join('');
+    // BIP
+    try {
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const bip = (freq, start, dur) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = freq; o.type = 'sine';
+        g.gain.setValueAtTime(0.3, ctx.currentTime + start);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+        o.start(ctx.currentTime + start); o.stop(ctx.currentTime + start + dur);
+      };
+      bip(880, 0, 0.12); bip(880, 0.16, 0.12);
+    } catch(e) {}
+  } else {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
   }
 }
 
@@ -2000,7 +2089,7 @@ function glrdFicheHTML(r, jourInfo) {
     r.NB_CMV ? `${r.NB_CMV} CMV` : '',
   ].filter(Boolean).join(' · ');
   const courses = [r.COURSE_1,r.COURSE_2,r.COURSE_3,r.COURSE_4].filter(Boolean);
-  const comms   = [r.COMM_A, r.COMM_B, r.COMM_C].filter(Boolean);
+  const comms   = [r.COMM_A, r.COMM_B].filter(Boolean); // COMM_C → Report Jx uniquement
 
   const telRef = (REFERANTS.find(rf => rf.nom === r.MEP_PAR)||{}).tel ||
                  (BENEVOLES_DATA.find(b => b.nom === r.MEP_PAR)||{}).tel || '';
@@ -2148,7 +2237,15 @@ function glrdRenderReport() {
       </thead>
       <tbody>
         ${rows.map(r => {
-          const tel = (BENEVOLES_DATA.find(b => b.nom === r.REFERENT)||{}).tel || '';
+          const tel = (() => {
+            if (!r.REFERENT) return '';
+            const exact = BENEVOLES_DATA.find(b => b.nom === r.REFERENT);
+            if (exact) return exact.tel || '';
+            // Fallback : chercher par NOM seul (premier mot)
+            const nomSeul = r.REFERENT.split(' ')[0];
+            const approx = BENEVOLES_DATA.find(b => b.nom.startsWith(nomSeul));
+            return approx ? approx.tel || '' : '';
+          })();
           const accompagnants = [r.ACC_1,r.ACC_2,r.ACC_3].filter(Boolean).join(', ');
           const vehicules = [r.VEH_A,r.VEH_B].filter(Boolean).join(' + ');
           const radios = [
@@ -3025,6 +3122,18 @@ document.getElementById('fichesPSOverlay').addEventListener('click', function(e)
       <button class="btn-fiche-print" onclick="glrdSauvegarder()" id="glrdBtnSave">💾 Sauvegarder</button>
       <button class="btn-close" onclick="closeGaillarde()">✕</button>
     </div>
+
+    <!-- Stats bar -->
+    <div id="glrdStatsBar" style="background:#f5f5f5;border-bottom:1px solid #ddd;
+      padding:8px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12px">
+      <span id="glrdStatPS" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#1A3A5C">● PS actifs : 0</span>
+      <span id="glrdStatBenv" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#27AE60">● Bénévoles : 0</span>
+      <span id="glrdStatCOM" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#2980B9">COM 0</span>
+      <span id="glrdStatCRS" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#006064">CRS 0</span>
+      <span id="glrdStatCMV" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#1E8449">CMV 0</span>
+    </div>
+    <!-- Alertes doublons LG -->
+    <div id="glrdAlertsBar" style="display:none;padding:6px 20px;background:#FFF3E0;border-bottom:2px solid #E67E22"></div>
 
     <!-- ONGLETS -->
     <div class="glrd-tabs">
