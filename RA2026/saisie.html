@@ -2804,7 +2804,8 @@ async function loadSaisieFromSheets(jour) {
   }
 }
 
-// Sauvegarde vers Sheets via JSONP — 1 PS à la fois + retry automatique (robuste ADSL)
+// Sauvegarde vers Sheets — envoie TOUS les secteurs du jour en un seul appel
+// Cela permet de supprimer correctement les secteurs retirés de l'interface
 async function saveToSheets() {
   try { localStorage.setItem('ra2026_saisie', JSON.stringify(state)); } catch(e) {}
   if (!SHEETS_ENABLED) { toast('Brouillon local sauvegardé ✓'); return; }
@@ -2814,29 +2815,19 @@ async function saveToSheets() {
 
   try {
     const secteurs = state[currentJour] || [];
-    let totalUpdated = 0, totalInserted = 0, errors = 0;
 
+    // Envoyer TOUS les secteurs du jour en un seul appel
+    // Apps Script supprime toutes les lignes du jour et réécrit → gère les suppressions
+    const jsonSaisie = await callASRetry({
+      action: 'saveSaisie',
+      jour: currentJour,
+      data: JSON.stringify(secteurs),
+    });
+
+    if (!jsonSaisie.ok) throw new Error(jsonSaisie.error);
+
+    // Commentaires secteur par secteur
     for (const s of secteurs) {
-      // 1. Sauvegarde PS du secteur (1 secteur = appel unique)
-      try {
-        const jsonSaisie = await callASRetry({
-          action: 'saveSaisie',
-          jour: currentJour,
-          data: JSON.stringify([s]),
-        });
-        if (jsonSaisie.ok) {
-          totalUpdated  += jsonSaisie.data.updated  || 0;
-          totalInserted += jsonSaisie.data.inserted || 0;
-        } else {
-          errors++;
-          console.error('saveSaisie error:', jsonSaisie.error);
-        }
-      } catch(e) {
-        errors++;
-        console.error('saveSaisie timeout:', s.secteur, e.message);
-      }
-
-      // 2. Commentaires du secteur
       if (s.commentaires && s.commentaires.some(Boolean)) {
         try {
           await callASRetry({
@@ -2851,11 +2842,7 @@ async function saveToSheets() {
       }
     }
 
-    if (errors === 0) {
-      toast(`Sheets mis à jour ✓  (${totalUpdated} modifiés, ${totalInserted} nouveaux)`);
-    } else {
-      toast(`Sauvegarde partielle — ${errors} secteur(s) en erreur (brouillon local conservé)`, 'warn');
-    }
+    toast('Sheets mis à jour ✓ (' + (jsonSaisie.data.inserted || 0) + ' PS sauvegardés)');
   } catch(e) {
     toast('Erreur envoi Sheets — brouillon local conservé', 'err');
     console.error('Sheets save error:', e);
