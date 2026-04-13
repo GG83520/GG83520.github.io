@@ -1938,6 +1938,29 @@ function glrdFieldSelect(label, idx, field, value, opts) {
 }
 
 
+async function glrdSauvegarder() {
+  const btn = document.getElementById('glrdBtnSave');
+  if (btn) { btn.textContent = '⏳ Envoi…'; btn.disabled = true; }
+  const rows = glrdState[glrdJour] || [];
+  try {
+    const result = await callASRetry({
+      action: 'saveSaisieGaillarde',
+      jour: glrdJour,
+      data: JSON.stringify(rows),
+    });
+    if (result && result.ok) {
+      glrdToast(`LA_GAILLARDE ${glrdJour} — ${result.data.saved} PS sauvegardés ✓`, 'ok');
+    } else {
+      glrdToast('Erreur sauvegarde : ' + (result?.error || 'inconnue'), 'err');
+    }
+  } catch(e) {
+    glrdToast('Timeout — vérifie la connexion et réessaie', 'warn');
+    console.error('glrdSauvegarder error:', e);
+  } finally {
+    if (btn) { btn.textContent = '💾 Sauvegarder'; btn.disabled = false; }
+  }
+}
+
 function glrdRenderFiches() {
   const rows = glrdState[glrdJour] || [];
   const jourInfo = JOURS.find(j => j.id === glrdJour);
