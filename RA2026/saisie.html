@@ -627,6 +627,7 @@
     background: #B7950B; color: #fff;
     padding: 12px 20px; border-radius: 10px 10px 0 0;
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 20;
   }
   .glrd-title {
     font-family: 'Barlow Condensed', sans-serif;
@@ -635,6 +636,7 @@
   .glrd-tabs {
     display: flex; border-bottom: 2px solid #e0e0e0;
     background: #f5f5f5;
+    position: sticky; top: 56px; z-index: 15;
   }
   .glrd-tab {
     padding: 10px 20px; cursor: pointer;
@@ -1911,9 +1913,12 @@ function glrdRenderSaisie() {
     html += '<div class="glrd-section-label">📝 Commentaires</div>';
     html += '<div style="padding:10px 14px;display:flex;flex-direction:column;gap:6px">';
     ['A','B','C'].forEach(l => {
+      const placeholder = l === 'C' ? 'Observation Orga Roc…' : 'Commentaire ' + l + '…';
+      const labelStyle  = l === 'C' ? 'min-width:20px;margin:0;color:#E67E22;font-weight:700' : 'min-width:20px;margin:0';
+      const labelTitle  = l === 'C' ? ' title="→ Report Jx uniquement"' : '';
       html += '<div class="glrd-field" style="display:flex;align-items:center;gap:8px">';
-      html += '<label style="min-width:20px;margin:0">' + l + '</label>';
-      html += '<input type="text" value="' + (r['COMM_'+l]||'').replace(/"/g,'&quot;') + '" placeholder="Commentaire ' + l + '…" oninput="glrdUpdate(' + idx + ',\'COMM_' + l + '\',this.value)" style="flex:1"></div>';
+      html += '<label style="' + labelStyle + '"' + labelTitle + '>' + l + '</label>';
+      html += '<input type="text" value="' + (r['COMM_'+l]||'').replace(/"/g,'&quot;') + '" placeholder="' + placeholder + '" oninput="glrdUpdate(' + idx + ',\'COMM_' + l + '\',this.value)" style="flex:1"></div>';
     });
     html += '</div>';
 
@@ -3125,7 +3130,8 @@ document.getElementById('fichesPSOverlay').addEventListener('click', function(e)
 
     <!-- Stats bar -->
     <div id="glrdStatsBar" style="background:#f5f5f5;border-bottom:1px solid #ddd;
-      padding:8px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12px">
+      padding:8px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12px;
+      position:sticky;top:0;z-index:10">
       <span id="glrdStatPS" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#1A3A5C">● PS actifs : 0</span>
       <span id="glrdStatBenv" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#27AE60">● Bénévoles : 0</span>
       <span id="glrdStatCOM" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#2980B9">COM 0</span>
