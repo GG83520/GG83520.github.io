@@ -1761,7 +1761,7 @@ async function glrdChargerJour() {
           REFERENT: r.REFERENT||'', ACC_1: r.ACC_1||'', ACC_2: r.ACC_2||'', ACC_3: r.ACC_3||'',
           VEH_A: r.VEH_A||'', VEH_B: r.VEH_B||'',
           NB_COM: r.NB_COM||0, NB_CRS: r.NB_CRS||0, NB_CMV: r.NB_CMV||0,
-          MEP_PAR: r.MEP_PAR||'', MEP_LIEU: r.MEP_LIEU||'', HMEP: r.HMEP||'',
+          MEP_PAR: r.MEP_PAR||'', MEP_LIEU: r.MEP_LIEU||'', HMEP: r.HMEP||'', HMEP_RDV: r.HMEP_RDV||'',
           KM_RAVIT: r.KM_RAVIT||'', KM_ATELIER: r.KM_ATELIER||'',
           COURSE_1: r.COURSE_1||'', COURSE_2: r.COURSE_2||'',
           COURSE_3: r.COURSE_3||'', COURSE_4: r.COURSE_4||'',
@@ -1782,7 +1782,7 @@ function glrdEmptyPS() {
   return {
     NUM_PS:'', LIEU_DIT:'', REFERENT:'', ACC_1:'', ACC_2:'', ACC_3:'',
     VEH_A:'', VEH_B:'', NB_COM:0, NB_CRS:0, NB_CMV:0,
-    MEP_PAR:'', MEP_LIEU:'', HMEP:'', KM_RAVIT:'', KM_ATELIER:'',
+    MEP_PAR:'', MEP_LIEU:'', HMEP:'', HMEP_RDV:'', KM_RAVIT:'', KM_ATELIER:'',
     COURSE_1:'', COURSE_2:'', COURSE_3:'', COURSE_4:'',
     PREMIER_PART:'', COMM_A:'', COMM_B:'', COMM_C:'',
   };
@@ -1880,20 +1880,21 @@ function glrdRenderSaisie() {
     html += glrdFieldSelect('Véhicule B', idx, 'VEH_B', r.VEH_B, glrdVehOpts(r.VEH_B));
     html += '<div class="glrd-field"><label>Radios</label><div class="glrd-radio-row">';
     html += '<span style="font-size:10px;color:#1A5276;font-weight:700">COM</span>';
-    html += '<input type="number" min="0" max="9" value="' + (r.NB_COM||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_COM\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#1A5276;border:1px solid rgba(41,128,185,0.4);border-radius:4px;padding:4px;background:#f9f9f9;-moz-appearance:textfield" oninput="this.style.background=this.value>0?\'#EBF5FB\':\'#f9f9f9\'">';
+    html += '<input type="number" min="0" max="9" placeholder="0" value="' + (r.NB_COM||'') + '" onchange="glrdUpdate(' + idx + ',\'NB_COM\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#1A5276;border:1px solid rgba(41,128,185,0.4);border-radius:4px;padding:4px;background:#f9f9f9" oninput="this.style.background=this.value>0?\'#EBF5FB\':\'#f9f9f9\'">';
     html += '<span style="font-size:10px;color:#006064;font-weight:700">CRS</span>';
-    html += '<input type="number" min="0" max="9" value="' + (r.NB_CRS||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_CRS\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#006064;border:1px solid rgba(0,188,212,0.4);border-radius:4px;padding:4px;background:#f9f9f9;-moz-appearance:textfield" oninput="this.style.background=this.value>0?\'#E0F7FA\':\'#f9f9f9\'">';
+    html += '<input type="number" min="0" max="9" placeholder="0" value="' + (r.NB_CRS||'') + '" onchange="glrdUpdate(' + idx + ',\'NB_CRS\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#006064;border:1px solid rgba(0,188,212,0.4);border-radius:4px;padding:4px;background:#f9f9f9" oninput="this.style.background=this.value>0?\'#E0F7FA\':\'#f9f9f9\'">';
     html += '<span style="font-size:10px;color:#1E8449;font-weight:700">CMV</span>';
-    html += '<input type="number" min="0" max="9" value="' + (r.NB_CMV||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_CMV\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#1E8449;border:1px solid rgba(39,174,96,0.4);border-radius:4px;padding:4px;background:#f9f9f9;-moz-appearance:textfield" oninput="this.style.background=this.value>0?\'#EAFAF1\':\'#f9f9f9\'">';
+    html += '<input type="number" min="0" max="9" placeholder="0" value="' + (r.NB_CMV||'') + '" onchange="glrdUpdate(' + idx + ',\'NB_CMV\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#1E8449;border:1px solid rgba(39,174,96,0.4);border-radius:4px;padding:4px;background:#f9f9f9" oninput="this.style.background=this.value>0?\'#EAFAF1\':\'#f9f9f9\'">';
     html += '</div></div></div>';
 
     // Mise en place
     html += '<div class="glrd-section-label">🚩 Mise en place</div>';
-    html += '<div class="glrd-grid" style="padding:10px 14px">';
+    html += '<div class="glrd-grid glrd-grid-3" style="padding:10px 14px">';
     html += glrdFieldSelect('Mise en place par', idx, 'MEP_PAR', r.MEP_PAR, glrdRefOpts(r.MEP_PAR));
     html += '<div class="glrd-field"><label>Lieu MeP (saisie)</label>';
     html += '<input type="text" value="' + (r.MEP_LIEU||'').replace(/"/g,'&quot;') + '" placeholder="ex: Parking Fournel" oninput="glrdUpdate(' + idx + ',\'MEP_LIEU\',this.value)"></div>';
-    html += '</div>'; // H MeP maintenant dans l'en-tête PS
+    html += glrdFieldSelect('Heure RDV MeP', idx, 'HMEP_RDV', r.HMEP_RDV||'', glrdHeurOpts(r.HMEP_RDV||''));
+    html += '</div>'; // Heure RDV MeP = pour Fiche de Poste
 
     // Distances
     html += '<div class="glrd-section-label">📍 Distances</div>';
@@ -2049,7 +2050,8 @@ function glrdUpdateStats() {
     bar.innerHTML = alerts.map(a => `<div style="font-size:12px;padding:2px 0">${a}</div>`).join('');
     // BIP seulement si dépassement radio OU doublon
     const hasRadioOver = totCOM > RADIO_MAX.com || totCRS > RADIO_MAX.crs || totCMV > RADIO_MAX.cmv;
-    if (hasRadioOver || alerts.length > 0) {
+    const newAlertCount = alerts.length + (hasRadioOver ? 1 : 0);
+    if (newAlertCount > 0 && newAlertCount !== (glrdUpdateStats._lastAlertCount || 0)) {
       try {
         const ctx = new (window.AudioContext||window.webkitAudioContext)();
         const bip = (freq, start, dur) => {
@@ -2063,6 +2065,7 @@ function glrdUpdateStats() {
         bip(880, 0, 0.12); bip(880, 0.16, 0.12);
       } catch(e) {}
     }
+    glrdUpdateStats._lastAlertCount = newAlertCount;
   } else {
     bar.style.display = 'none';
     bar.innerHTML = '';
@@ -2184,7 +2187,7 @@ function glrdFicheHTML(r, jourInfo) {
         </div>
         <div class="glrd-fiche-row">
           <span class="glrd-fiche-label">Heure RDV MeP</span>
-          <span class="glrd-fiche-val"><strong>${r.HMEP || '—'}</strong></span>
+          <span class="glrd-fiche-val"><strong>${r.HMEP_RDV || r.HMEP || '—'}</strong></span>
         </div>
 
         <div class="glrd-fiche-section" style="background:#1A3A5C;color:#fff;margin:10px 0">📍 Point Signaleur</div>
