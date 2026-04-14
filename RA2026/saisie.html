@@ -1857,6 +1857,10 @@ function glrdRenderSaisie() {
     html += '<select id="glrd-ps-select-' + idx + '" onchange="glrdUpdate(' + idx + ',\'NUM_PS\',this.value)" ';
     html += 'style="background:#0F2744;color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:4px;padding:4px 8px;font-weight:700;font-size:13px;flex:1;max-width:400px">';
     html += '</select>';
+    html += '<label style="color:rgba(255,255,255,0.8);font-size:11px;font-weight:700;letter-spacing:1px;white-space:nowrap;margin-left:12px">H MeP</label>';
+    html += '<select id="glrd-hmep-select-' + idx + '" onchange="glrdUpdate(' + idx + ',\'HMEP\',this.value)" ';
+    html += 'style="background:#0F2744;color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:4px;padding:4px 8px;font-weight:700;font-size:13px;min-width:90px">';
+    html += '</select>';
     html += '<button class="glrd-btn-del" onclick="glrdDelPS(' + idx + ')">✕ Supprimer</button>';
     html += '</div>';
 
@@ -1876,21 +1880,20 @@ function glrdRenderSaisie() {
     html += glrdFieldSelect('Véhicule B', idx, 'VEH_B', r.VEH_B, glrdVehOpts(r.VEH_B));
     html += '<div class="glrd-field"><label>Radios</label><div class="glrd-radio-row">';
     html += '<span style="font-size:10px;color:#1A5276;font-weight:700">COM</span>';
-    html += '<input type="number" min="0" max="9" value="' + (r.NB_COM||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_COM\',+this.value)" style="width:60px;text-align:center;font-weight:700;font-size:14px;color:#1A5276;border-color:rgba(41,128,185,0.4)">';
+    html += '<input type="number" min="0" max="9" value="' + (r.NB_COM||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_COM\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#1A5276;border:1px solid rgba(41,128,185,0.4);border-radius:4px;padding:4px;background:#f9f9f9;-moz-appearance:textfield" oninput="this.style.background=this.value>0?\'#EBF5FB\':\'#f9f9f9\'">';
     html += '<span style="font-size:10px;color:#006064;font-weight:700">CRS</span>';
-    html += '<input type="number" min="0" max="9" value="' + (r.NB_CRS||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_CRS\',+this.value)" style="width:60px;text-align:center;font-weight:700;font-size:14px;color:#006064;border-color:rgba(0,188,212,0.4)">';
+    html += '<input type="number" min="0" max="9" value="' + (r.NB_CRS||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_CRS\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#006064;border:1px solid rgba(0,188,212,0.4);border-radius:4px;padding:4px;background:#f9f9f9;-moz-appearance:textfield" oninput="this.style.background=this.value>0?\'#E0F7FA\':\'#f9f9f9\'">';
     html += '<span style="font-size:10px;color:#1E8449;font-weight:700">CMV</span>';
-    html += '<input type="number" min="0" max="9" value="' + (r.NB_CMV||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_CMV\',+this.value)" style="width:60px;text-align:center;font-weight:700;font-size:14px;color:#1E8449;border-color:rgba(39,174,96,0.4)">';
+    html += '<input type="number" min="0" max="9" value="' + (r.NB_CMV||0) + '" onchange="glrdUpdate(' + idx + ',\'NB_CMV\',+this.value)" style="width:50px;text-align:center;font-weight:700;font-size:14px;color:#1E8449;border:1px solid rgba(39,174,96,0.4);border-radius:4px;padding:4px;background:#f9f9f9;-moz-appearance:textfield" oninput="this.style.background=this.value>0?\'#EAFAF1\':\'#f9f9f9\'">';
     html += '</div></div></div>';
 
     // Mise en place
     html += '<div class="glrd-section-label">🚩 Mise en place</div>';
-    html += '<div class="glrd-grid glrd-grid-3" style="padding:10px 14px">';
+    html += '<div class="glrd-grid" style="padding:10px 14px">';
     html += glrdFieldSelect('Mise en place par', idx, 'MEP_PAR', r.MEP_PAR, glrdRefOpts(r.MEP_PAR));
     html += '<div class="glrd-field"><label>Lieu MeP (saisie)</label>';
     html += '<input type="text" value="' + (r.MEP_LIEU||'').replace(/"/g,'&quot;') + '" placeholder="ex: Parking Fournel" oninput="glrdUpdate(' + idx + ',\'MEP_LIEU\',this.value)"></div>';
-    html += glrdFieldSelect('Heure RDV MeP', idx, 'HMEP', r.HMEP, glrdHeurOpts(r.HMEP));
-    html += '</div>';
+    html += '</div>'; // H MeP maintenant dans l'en-tête PS
 
     // Distances
     html += '<div class="glrd-section-label">📍 Distances</div>';
@@ -1931,11 +1934,17 @@ function glrdRenderSaisie() {
 
   // Peupler les selects PS APRÈS le rendu DOM
   rows.forEach((r, idx) => {
-    const sel = document.getElementById('glrd-ps-select-' + idx);
-    if (!sel) return;
-    const psList = PS_SECTEUR['LA_GAILLARDE'] || [];
-    sel.innerHTML = '<option value="">— PS —</option>' +
-      psList.map(p => '<option value="' + p + '"' + (p === r.NUM_PS ? ' selected' : '') + '>' + p + '</option>').join('');
+    const selPS = document.getElementById('glrd-ps-select-' + idx);
+    if (selPS) {
+      const psList = PS_SECTEUR['LA_GAILLARDE'] || [];
+      selPS.innerHTML = '<option value="">— PS —</option>' +
+        psList.map(p => '<option value="' + p + '"' + (p === r.NUM_PS ? ' selected' : '') + '>' + p + '</option>').join('');
+    }
+    const selHmep = document.getElementById('glrd-hmep-select-' + idx);
+    if (selHmep) {
+      selHmep.innerHTML = '<option value="">—</option>' +
+        HEURES_MEP.map(h => '<option value="' + h + '"' + (h === r.HMEP ? ' selected' : '') + '>' + h + '</option>').join('');
+    }
   });
 
   glrdUpdateStats();
@@ -2038,19 +2047,22 @@ function glrdUpdateStats() {
   if (alerts.length) {
     bar.style.display = 'block';
     bar.innerHTML = alerts.map(a => `<div style="font-size:12px;padding:2px 0">${a}</div>`).join('');
-    // BIP
-    try {
-      const ctx = new (window.AudioContext||window.webkitAudioContext)();
-      const bip = (freq, start, dur) => {
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.frequency.value = freq; o.type = 'sine';
-        g.gain.setValueAtTime(0.3, ctx.currentTime + start);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
-        o.start(ctx.currentTime + start); o.stop(ctx.currentTime + start + dur);
-      };
-      bip(880, 0, 0.12); bip(880, 0.16, 0.12);
-    } catch(e) {}
+    // BIP seulement si dépassement radio OU doublon
+    const hasRadioOver = totCOM > RADIO_MAX.com || totCRS > RADIO_MAX.crs || totCMV > RADIO_MAX.cmv;
+    if (hasRadioOver || alerts.length > 0) {
+      try {
+        const ctx = new (window.AudioContext||window.webkitAudioContext)();
+        const bip = (freq, start, dur) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.frequency.value = freq; o.type = 'sine';
+          g.gain.setValueAtTime(0.3, ctx.currentTime + start);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+          o.start(ctx.currentTime + start); o.stop(ctx.currentTime + start + dur);
+        };
+        bip(880, 0, 0.12); bip(880, 0.16, 0.12);
+      } catch(e) {}
+    }
   } else {
     bar.style.display = 'none';
     bar.innerHTML = '';
@@ -2066,24 +2078,54 @@ function glrdRenderFiches() {
   rows.forEach(r => {
     [r.REFERENT, r.ACC_1, r.ACC_2, r.ACC_3].forEach(b => { if(b) benvoles.add(b); });
   });
-  const sel = document.getElementById('glrdBenvSelect');
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">— Tous les PS —</option>' +
-    [...benvoles].sort().map(b => `<option value="${b}" ${b===prev?'selected':''}>${b}</option>`).join('');
+  const selBenv = document.getElementById('glrdBenvSelect');
+  const prevBenv = selBenv.value;
+  selBenv.innerHTML = '<option value="">— Tous —</option>' +
+    [...benvoles].sort().map(b => `<option value="${b}" ${b===prevBenv?'selected':''}>${b}</option>`).join('');
 
-  // Filtrer
-  const filterBenv = sel.value;
-  const filtered = filterBenv
-    ? rows.filter(r => [r.REFERENT,r.ACC_1,r.ACC_2,r.ACC_3].includes(filterBenv))
-    : rows;
+  // Peupler sélecteur PS
+  const selPS = document.getElementById('glrdPSFicheSelect');
+  const prevPS = selPS.value;
+  selPS.innerHTML = '<option value="">— Tous —</option>' +
+    rows.filter(r => r.NUM_PS).map(r => `<option value="${r.NUM_PS}" ${r.NUM_PS===prevPS?'selected':''}>${r.NUM_PS}</option>`).join('');
+
+  glrdApplyFilter();
+}
+
+function glrdFilterByBenv() {
+  // Désactiver filtre PS quand bénévole est choisi
+  const selBenv = document.getElementById('glrdBenvSelect');
+  const selPS   = document.getElementById('glrdPSFicheSelect');
+  if (selBenv.value) selPS.value = '';
+  glrdApplyFilter();
+}
+
+function glrdFilterByPS() {
+  // Désactiver filtre bénévole quand PS est choisi
+  const selBenv = document.getElementById('glrdBenvSelect');
+  const selPS   = document.getElementById('glrdPSFicheSelect');
+  if (selPS.value) selBenv.value = '';
+  glrdApplyFilter();
+}
+
+function glrdApplyFilter() {
+  const rows = glrdState[glrdJour] || [];
+  const jourInfo = JOURS.find(j => j.id === glrdJour);
+  const filterBenv = document.getElementById('glrdBenvSelect').value;
+  const filterPS   = document.getElementById('glrdPSFicheSelect').value;
+
+  let filtered = rows;
+  if (filterBenv) {
+    filtered = rows.filter(r => [r.REFERENT,r.ACC_1,r.ACC_2,r.ACC_3].includes(filterBenv));
+  } else if (filterPS) {
+    filtered = rows.filter(r => r.NUM_PS === filterPS);
+  }
 
   const body = document.getElementById('glrdFichesBody');
   if (!filtered.length) {
-    body.innerHTML = `<div style="text-align:center;color:#aaa;padding:30px;font-style:italic">
-      Aucune fiche pour ce bénévole ce jour</div>`;
+    body.innerHTML = '<div style="text-align:center;color:#aaa;padding:30px;font-style:italic">Aucune fiche pour ce filtre</div>';
     return;
   }
-
   body.innerHTML = filtered.map(r => glrdFicheHTML(r, jourInfo)).join('');
 }
 
@@ -3158,13 +3200,18 @@ document.getElementById('fichesPSOverlay').addEventListener('click', function(e)
 
     <!-- TAB FICHES DE POSTE -->
     <div class="glrd-tab-content" id="glrdTabFiches">
-      <div class="glrd-benv-selector" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        <label style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
-          letter-spacing:1px;text-transform:uppercase;color:#888">Sélectionner bénévole :</label>
-        <select id="glrdBenvSelect" onchange="glrdRenderFiches()"
-          style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;
-            font-size:13px;min-width:200px">
-          <option value="">— Tous les PS —</option>
+      <div class="glrd-benv-selector" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <label style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+          letter-spacing:1px;text-transform:uppercase;color:#888">Bénévole :</label>
+        <select id="glrdBenvSelect" onchange="glrdFilterByBenv()"
+          style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;min-width:180px">
+          <option value="">— Tous —</option>
+        </select>
+        <label style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+          letter-spacing:1px;text-transform:uppercase;color:#888;margin-left:8px">PS :</label>
+        <select id="glrdPSFicheSelect" onchange="glrdFilterByPS()"
+          style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;min-width:220px">
+          <option value="">— Tous —</option>
         </select>
         <button class="btn-fiche-print" onclick="glrdImprimerFiches()" style="margin-left:auto">🖨 Imprimer</button>
       </div>
