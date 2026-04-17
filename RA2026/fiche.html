@@ -469,7 +469,8 @@
 <!-- ======= ÉCRAN RÉSULTATS NOM (si plusieurs PS) ======= -->
 <div id="screenResultats" style="display:none;flex-direction:column;align-items:center;
   justify-content:flex-start;padding:24px 20px;min-height:100vh;
-  background:radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.15) 0%, transparent 70%),var(--dark)">
+  background:radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.15) 0%, transparent 70%),var(--dark);
+  box-sizing:border-box;width:100%">
   <div class="login-logo">CCFF · RSA</div>
   <div class="login-title" style="margin-bottom:8px">ROC D'AZUR <span>2026</span></div>
   <div style="font-size:14px;color:var(--texte2);margin-bottom:20px">Vos affectations pour <strong id="resultJourLabel">—</strong></div>
@@ -702,7 +703,9 @@ function afficherResultats(results) {
     </div>`).join('');
   window._resultsList = results;
   document.getElementById('screenLogin').style.display = 'none';
-  document.getElementById('screenResultats').style.display = 'flex';
+  const sr = document.getElementById('screenResultats');
+  sr.style.display = 'flex';
+  sr.style.flexDirection = 'column';
 }
 
 function afficherFicheParResult_idx(idx) {
@@ -731,10 +734,8 @@ function selectJour(jid) {
 (function initLogin() {
   // Sélecteur toujours visible
   document.getElementById('jourSelectorGroup').style.display = 'block';
-  // Badge initial J1
-  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
-  document.getElementById('loginJourLabel').textContent =
-    `${jourInfo.label} — ${jourInfo.date}`;
+  // Activer J1 par défaut (highlight + badge)
+  selectJour(JOUR_COURANT);
 })();
 
 // Enter key support
