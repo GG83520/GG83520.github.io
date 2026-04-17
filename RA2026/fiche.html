@@ -383,8 +383,25 @@
     font-family: 'Barlow Condensed', sans-serif; font-size: 16px;
     font-weight: 600; letter-spacing: 1px; transition: all 0.15s;
   }
-  .jour-btn:hover { border-color: var(--rouge-vif); color: var(--texte); background: rgba(192,57,43,0.1); }
-  .jour-btn.active { background: var(--rouge); border-color: var(--rouge); color: #fff; }
+  /* Mode tabs */
+  .mode-tabs { display:flex; gap:0; margin-bottom:16px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); }
+  .mode-tab {
+    flex:1; padding:10px; text-align:center; cursor:pointer;
+    font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; letter-spacing:1px;
+    background:rgba(255,255,255,0.05); color:var(--texte2); border:none; transition:all 0.15s;
+  }
+  .mode-tab.active { background:var(--rouge); color:#fff; }
+  .mode-panel { display:none; }
+  .mode-panel.active { display:block; }
+  /* Liste choix prénom */
+  .prenom-list { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .prenom-btn {
+    padding:12px 16px; border-radius:8px; border:1.5px solid rgba(255,255,255,0.1);
+    background:rgba(255,255,255,0.05); color:var(--texte); cursor:pointer; text-align:left;
+    font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:600;
+    transition:all 0.15s;
+  }
+  .prenom-btn:hover { border-color:var(--rouge-vif); background:rgba(192,57,43,0.1); }
 </style>
 </head>
 <body>
@@ -396,13 +413,39 @@
   <div class="login-subtitle">Ma fiche point signaleur</div>
 
   <div class="login-card">
-    <div class="input-group">
-      <label>Numéro de point signaleur</label>
-      <input type="number" id="inputPS" placeholder="Ex : 33" min="1" max="250"
-        inputmode="numeric" autocomplete="off" />
+
+    <!-- Onglets mode -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="switchMode('ps')">🗺 Par PS</button>
+      <button class="mode-tab" onclick="switchMode('nom')">👤 Par Nom</button>
     </div>
 
-    <!-- Sélecteur de jour — visible uniquement hors période événement -->
+    <!-- MODE PAR PS (existant) -->
+    <div class="mode-panel active" id="modePS">
+      <div class="input-group">
+        <label>Numéro de point signaleur</label>
+        <input type="number" id="inputPS" placeholder="Ex : 33" min="1" max="250"
+          inputmode="numeric" autocomplete="off" />
+      </div>
+    </div>
+
+    <!-- MODE PAR NOM -->
+    <div class="mode-panel" id="modeNom">
+      <div class="input-group">
+        <label>Votre nom</label>
+        <input type="text" id="inputNom" placeholder="Ex : Dupont" autocomplete="off"
+          style="width:100%;padding:14px 16px;border-radius:10px;
+            background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);
+            color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600" />
+      </div>
+      <!-- Liste prénoms si ambiguïté -->
+      <div id="prenomList" style="display:none">
+        <div style="font-size:12px;color:var(--texte2);margin-bottom:6px">Plusieurs bénévoles trouvés — choisissez :</div>
+        <div class="prenom-list" id="prenomBtns"></div>
+      </div>
+    </div>
+
+    <!-- Sélecteur de jour — toujours visible -->
     <div class="input-group" id="jourSelectorGroup" style="display:none">
       <label>Jour</label>
       <div id="jourBtns" style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
@@ -414,13 +457,26 @@
       </div>
     </div>
 
-    <button class="btn-login" onclick="acceder()">ACCÉDER À MA FICHE</button>
+    <button class="btn-login" id="btnAcceder" onclick="acceder()">ACCÉDER À MA FICHE</button>
     <div class="error-msg" id="errMsg"></div>
   </div>
 
   <div class="login-jour-badge">
     Jour en cours : <strong id="loginJourLabel">—</strong>
   </div>
+</div>
+
+<!-- ======= ÉCRAN RÉSULTATS NOM (si plusieurs PS) ======= -->
+<div id="screenResultats" style="display:none;flex-direction:column;align-items:center;
+  justify-content:flex-start;padding:24px 20px;min-height:100vh;
+  background:radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.15) 0%, transparent 70%),var(--dark)">
+  <div class="login-logo">CCFF · RSA</div>
+  <div class="login-title" style="margin-bottom:8px">ROC D'AZUR <span>2026</span></div>
+  <div style="font-size:14px;color:var(--texte2);margin-bottom:20px">Vos affectations pour <strong id="resultJourLabel">—</strong></div>
+  <div id="resultCards" style="width:100%;max-width:480px;display:flex;flex-direction:column;gap:10px"></div>
+  <button onclick="retourLogin()" style="margin-top:20px;background:transparent;border:1px solid var(--border);
+    color:var(--texte2);border-radius:8px;padding:10px 20px;cursor:pointer;
+    font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700">← Retour</button>
 </div>
 
 <!-- ======= ÉCRAN FICHE ======= -->
@@ -561,6 +617,106 @@ function coursesPS(psNum, jourId) {
 // ============================================================
 // UI LOGIN — sélecteur de jour toujours visible
 // ============================================================
+let currentMode = 'ps'; // 'ps' ou 'nom'
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach((t,i) =>
+    t.classList.toggle('active', (i===0&&mode==='ps')||(i===1&&mode==='nom'))
+  );
+  document.getElementById('modePS').classList.toggle('active', mode==='ps');
+  document.getElementById('modeNom').classList.toggle('active', mode==='nom');
+  document.getElementById('prenomList').style.display = 'none';
+  document.getElementById('errMsg').textContent = '';
+}
+
+function retourLogin() {
+  document.getElementById('screenResultats').style.display = 'none';
+  document.getElementById('screenLogin').style.display = 'flex';
+}
+
+async function accederParNom(nom) {
+  const errEl = document.getElementById('errMsg');
+  const btn   = document.getElementById('btnAcceder');
+  errEl.textContent = '';
+  btn.textContent = '⏳ Recherche…'; btn.disabled = true;
+  try {
+    const json = await callAS({ action: 'getFicheParNom', nom, jour: JOUR_COURANT });
+    if (!json.ok) throw new Error(json.error);
+    const results = json.data.results || [];
+    if (!results.length) {
+      errEl.textContent = `Aucune affectation trouvée pour "${nom}" en ${JOUR_COURANT}`;
+      return;
+    }
+    // Regrouper par nomComplet
+    const parBenevole = {};
+    results.forEach(r => {
+      if (!parBenevole[r.nomComplet]) parBenevole[r.nomComplet] = [];
+      parBenevole[r.nomComplet].push(r);
+    });
+    const benevoles = Object.keys(parBenevole);
+    if (benevoles.length === 1) {
+      const ps = parBenevole[benevoles[0]];
+      if (ps.length === 1) {
+        afficherFicheParResult(ps[0]);
+      } else {
+        afficherResultats(ps);
+      }
+    } else {
+      // Plusieurs bénévoles → choisir le prénom
+      const prenomBtns = document.getElementById('prenomBtns');
+      window._nomResults = parBenevole;
+      prenomBtns.innerHTML = benevoles.map(b => {
+        const prenom = parBenevole[b][0].prenom || b;
+        const nbPS   = parBenevole[b].length;
+        return `<button class="prenom-btn" onclick="choisirBenevole('${b.replace(/'/g,"\\'")}')">
+          ${prenom}<span style="font-size:12px;color:var(--texte2);float:right">${nbPS} PS</span></button>`;
+      }).join('');
+      document.getElementById('prenomList').style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = 'Erreur recherche : ' + e.message;
+  } finally {
+    btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
+  }
+}
+
+function choisirBenevole(nomComplet) {
+  const ps = window._nomResults?.[nomComplet] || [];
+  ps.length === 1 ? afficherFicheParResult(ps[0]) : afficherResultats(ps);
+}
+
+function afficherResultats(results) {
+  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
+  document.getElementById('resultJourLabel').textContent = `${jourInfo.label} — ${jourInfo.date}`;
+  document.getElementById('resultCards').innerHTML = results.map((r,i) => `
+    <div onclick="afficherFicheParResult_idx(${i})"
+      style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);
+        border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.15s"
+      onmouseover="this.style.borderColor='#E74C3C'"
+      onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#ECF0F1">
+        PS ${r.ps} — ${r.lieudit || ''}
+      </div>
+      <div style="font-size:12px;color:#8B949E;margin-top:4px">${r.secteur}</div>
+    </div>`).join('');
+  window._resultsList = results;
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenResultats').style.display = 'flex';
+}
+
+function afficherFicheParResult_idx(idx) {
+  const r = window._resultsList?.[idx];
+  if (r) afficherFicheParResult(r);
+}
+
+function afficherFicheParResult(r) {
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenResultats').style.display = 'none';
+  const psNum = parseInt(String(r.ps).match(/\d+/)?.[0] || '0');
+  if (psNum) afficherFicheFromSheets(psNum, JOUR_COURANT);
+}
+
 function selectJour(jid) {
   JOUR_COURANT = jid;
   document.querySelectorAll('.jour-btn').forEach(b => {
@@ -587,12 +743,22 @@ document.addEventListener('keydown', e => {
 });
 
 async function acceder() {
-  const psVal = parseInt(document.getElementById('inputPS').value);
   const errEl = document.getElementById('errMsg');
-
-  // JOUR_COURANT déjà mis à jour par selectJour()
-
   errEl.textContent = '';
+
+  // Mode Par Nom
+  if (currentMode === 'nom') {
+    const nom = document.getElementById('inputNom').value.trim();
+    if (!nom || nom.length < 2) {
+      errEl.textContent = 'Saisissez au moins 2 caractères';
+      return;
+    }
+    await accederParNom(nom);
+    return;
+  }
+
+  // Mode Par PS
+  const psVal = parseInt(document.getElementById('inputPS').value);
   document.getElementById('inputPS').classList.remove('error');
 
   if (!psVal || psVal < 1 || psVal > 250) {
