@@ -717,7 +717,25 @@ function afficherFicheParResult(r) {
   document.getElementById('screenLogin').style.display = 'none';
   document.getElementById('screenResultats').style.display = 'none';
   const psNum = parseInt(String(r.ps).match(/\d+/)?.[0] || '0');
-  if (psNum) afficherFicheFromSheets(psNum, JOUR_COURANT);
+  if (!psNum) return;
+
+  // Afficher un écran de chargement temporaire
+  document.getElementById('screenFiche').style.display = 'flex';
+  document.getElementById('ficheBody').innerHTML =
+    '<div style="padding:40px;text-align:center;color:var(--texte2)">⏳ Chargement de la fiche…</div>';
+
+  // Charger les données depuis Apps Script
+  callAS({ action: 'getFichePS', ps: psNum, jour: JOUR_COURANT })
+    .then(json => {
+      if (json.ok && json.data) {
+        afficherFicheFromSheets(psNum, JOUR_COURANT, json.data);
+      } else {
+        afficherFiche(psNum, JOUR_COURANT);
+      }
+    })
+    .catch(() => {
+      afficherFiche(psNum, JOUR_COURANT);
+    });
 }
 
 function selectJour(jid) {
