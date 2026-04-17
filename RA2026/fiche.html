@@ -689,18 +689,18 @@ function choisirBenevole(nomComplet) {
 
 function afficherResultats(results) {
   const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
-  document.getElementById('resultJourLabel').textContent = `${jourInfo.label} — ${jourInfo.date}`;
-  document.getElementById('resultCards').innerHTML = results.map((r,i) => `
-    <div onclick="afficherFicheParResult_idx(${i})"
-      style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);
-        border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.15s"
-      onmouseover="this.style.borderColor='#E74C3C'"
-      onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#ECF0F1">
-        PS ${r.ps} — ${r.lieudit || ''}
-      </div>
-      <div style="font-size:12px;color:#8B949E;margin-top:4px">${r.secteur}</div>
-    </div>`).join('');
+  document.getElementById('resultJourLabel').textContent = jourInfo.label + ' — ' + jourInfo.date;
+  document.getElementById('resultCards').innerHTML = results.map(function(r, i) {
+    return '<div onclick="afficherFicheParResult_idx(' + i + ')"' +
+      ' style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);' +
+      'border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.15s"' +
+      ' onmouseover="this.style.borderColor=\'#E74C3C\'"' +
+      ' onmouseout="this.style.borderColor=\'rgba(255,255,255,0.1)\'">' +
+      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:900;color:#ECF0F1">' +
+      'PS ' + (r.ps || '—') + ' — ' + (r.lieudit || '') + '</div>' +
+      '<div style="font-size:12px;color:#8B949E;margin-top:4px">' + (r.secteur || '') + '</div>' +
+      '</div>';
+  }).join('');
   window._resultsList = results;
   document.getElementById('screenLogin').style.display = 'none';
   const sr = document.getElementById('screenResultats');
@@ -734,8 +734,14 @@ function selectJour(jid) {
 (function initLogin() {
   // Sélecteur toujours visible
   document.getElementById('jourSelectorGroup').style.display = 'block';
-  // Activer J1 par défaut (highlight + badge)
-  selectJour(JOUR_COURANT);
+  // Badge initial + highlight J1
+  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
+  document.getElementById('loginJourLabel').textContent =
+    jourInfo.label + ' — ' + jourInfo.date;
+  // Highlight bouton J1
+  document.querySelectorAll('.jour-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.jour === JOUR_COURANT);
+  });
 })();
 
 // Enter key support
