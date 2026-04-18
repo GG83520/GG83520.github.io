@@ -241,6 +241,27 @@ const JOURS = [
 // Courses (alimentées dynamiquement depuis la réponse Apps Script)
 const COURSES = {};
 
+// ── JSONP ─────────────────────────────────────────────────────────────────────
+function callAS(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const timer  = setTimeout(() => {
+      delete window[cbName];
+      reject(new Error('Timeout — connexion trop lente'));
+    }, 45000);
+    window[cbName] = data => {
+      clearTimeout(timer);
+      delete window[cbName];
+      resolve(data);
+    };
+    const s = document.createElement('script');
+    s.src = APPS_SCRIPT_URL + '?' + new URLSearchParams({ ...params, callback: cbName });
+    s.onerror = () => { clearTimeout(timer); delete window[cbName]; reject(new Error('Erreur réseau')); };
+    document.head.appendChild(s);
+    setTimeout(() => { try { s.remove(); } catch(e){} }, 50000);
+  });
+}
+
 // ── État ──────────────────────────────────────────────────────────────────────
 let JOUR_COURANT = 'J1';
 let SOURCE       = 'ts'; // 'ts' | 'lg'
