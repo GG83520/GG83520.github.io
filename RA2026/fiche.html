@@ -151,14 +151,30 @@
       </div>
     </div>
 
-    <!-- Étape 2 : Numéro PS -->
-    <div class="input-group">
+    <!-- Étape 2 : Mode recherche (TS uniquement) -->
+    <div class="input-group" id="modeRechercheGroup" style="display:none">
+      <label>Rechercher par</label>
+      <div class="source-btns">
+        <button class="source-btn active-ts" id="btnModePS" onclick="setMode('ps')">🗺 Numéro PS</button>
+        <button class="source-btn" id="btnModeNom" onclick="setMode('nom')">👤 Nom</button>
+      </div>
+    </div>
+
+    <!-- Étape 3a : Numéro PS -->
+    <div class="input-group" id="groupPS">
       <label>Numéro de point signaleur</label>
       <input type="number" id="inputPS" placeholder="Ex : 33"
         min="1" max="250" inputmode="numeric" autocomplete="off" />
     </div>
 
-    <!-- Étape 3 : Jour -->
+    <!-- Étape 3b : Nom (TS uniquement) -->
+    <div class="input-group" id="groupNom" style="display:none">
+      <label>Votre nom</label>
+      <input type="text" id="inputNom" placeholder="Ex : Dupont" autocomplete="off"
+        style="font-size:20px;letter-spacing:1px" />
+    </div>
+
+    <!-- Étape 4 : Jour -->
     <div class="input-group">
       <label>Jour</label>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
@@ -177,6 +193,21 @@
   <div class="login-jour-badge">
     Jour sélectionné : <strong id="loginJourLabel">—</strong>
   </div>
+</div>
+
+<!-- ======= ÉCRAN CHOIX (résultats Par Nom) ======= -->
+<div id="screenChoix" style="display:none;flex-direction:column;align-items:center;
+  justify-content:flex-start;padding:24px 20px;min-height:100vh;
+  background:radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.15) 0%, transparent 70%),var(--dark)">
+  <div class="login-logo">CCFF · RSA</div>
+  <div class="login-title" style="margin-bottom:8px">ROC D'AZUR <span>2026</span></div>
+  <div style="font-size:14px;color:var(--texte2);margin-bottom:20px;text-align:center"
+    id="choixLabel">Choisissez votre affectation :</div>
+  <div id="choixCards" style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:10px"></div>
+  <button onclick="retourChoix()" style="margin-top:20px;background:transparent;
+    border:1px solid var(--border);color:var(--texte2);border-radius:8px;
+    padding:10px 20px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+    font-size:14px;font-weight:700">← Retour</button>
 </div>
 
 <!-- ======= ÉCRAN FICHE ======= -->
@@ -213,33 +244,25 @@ const COURSES = {};
 // ── État ──────────────────────────────────────────────────────────────────────
 let JOUR_COURANT = 'J1';
 let SOURCE       = 'ts'; // 'ts' | 'lg'
-
-// ── JSONP ─────────────────────────────────────────────────────────────────────
-function callAS(params) {
-  return new Promise((resolve, reject) => {
-    const cbName = 'cb_' + Math.random().toString(36).slice(2);
-    const timer  = setTimeout(() => {
-      delete window[cbName];
-      reject(new Error('Timeout — connexion trop lente'));
-    }, 45000);
-    window[cbName] = data => {
-      clearTimeout(timer);
-      delete window[cbName];
-      resolve(data);
-    };
-    const s = document.createElement('script');
-    s.src = APPS_SCRIPT_URL + '?' + new URLSearchParams({ ...params, callback: cbName });
-    s.onerror = () => { clearTimeout(timer); delete window[cbName]; reject(new Error('Erreur réseau')); };
-    document.head.appendChild(s);
-    setTimeout(() => { try { s.remove(); } catch(e){} }, 50000);
-  });
-}
+let MODE         = 'ps'; // 'ps' | 'nom' (TS uniquement)
 
 // ── UI Login ──────────────────────────────────────────────────────────────────
 function setSource(src) {
   SOURCE = src;
   document.getElementById('btnTS').className = 'source-btn' + (src === 'ts' ? ' active-ts' : '');
   document.getElementById('btnLG').className = 'source-btn' + (src === 'lg' ? ' active-lg' : '');
+  // Toggle PS/NOM visible uniquement pour TS
+  document.getElementById('modeRechercheGroup').style.display = src === 'ts' ? 'block' : 'none';
+  if (src === 'lg') setMode('ps'); // LG → forcer PS
+}
+
+function setMode(mode) {
+  MODE = mode;
+  document.getElementById('btnModePS').className  = 'source-btn' + (mode === 'ps'  ? ' active-ts' : '');
+  document.getElementById('btnModeNom').className = 'source-btn' + (mode === 'nom' ? ' active-ts' : '');
+  document.getElementById('groupPS').style.display  = mode === 'ps'  ? 'block' : 'none';
+  document.getElementById('groupNom').style.display = mode === 'nom' ? 'block' : 'none';
+  document.getElementById('errMsg').textContent = '';
 }
 
 function selectJour(jid) {
@@ -253,18 +276,33 @@ function selectJour(jid) {
 
 function retour() {
   document.getElementById('screenFiche').style.display = 'none';
+  document.getElementById('screenChoix').style.display = 'none';
   document.getElementById('screenLogin').style.display = 'flex';
-  document.getElementById('inputPS').value = '';
+  document.getElementById('inputPS').value  = '';
+  document.getElementById('inputNom').value = '';
   document.getElementById('errMsg').textContent = '';
+}
+
+function retourChoix() {
+  document.getElementById('screenChoix').style.display = 'none';
+  document.getElementById('screenLogin').style.display = 'flex';
 }
 
 // Init J1 sélectionné par défaut
 selectJour('J1');
-
 document.addEventListener('keydown', e => { if (e.key === 'Enter') acceder(); });
 
-// ── Accéder ───────────────────────────────────────────────────────────────────
+// ── Accéder — dispatcher ──────────────────────────────────────────────────────
 async function acceder() {
+  if (SOURCE === 'ts' && MODE === 'nom') {
+    await accederParNom();
+  } else {
+    await accederParPS();
+  }
+}
+
+// ── Par PS ────────────────────────────────────────────────────────────────────
+async function accederParPS() {
   const errEl = document.getElementById('errMsg');
   const btn   = document.getElementById('btnAcceder');
   errEl.textContent = '';
@@ -277,33 +315,98 @@ async function acceder() {
     return;
   }
 
-  btn.textContent = '⏳ Chargement…';
-  btn.disabled = true;
-
+  btn.textContent = '⏳ Chargement…'; btn.disabled = true;
   try {
-    const json = await callAS({
-      action: 'getFichePS',
-      ps:     psVal,
-      jour:   JOUR_COURANT,
-      source: SOURCE,
-    });
-
+    const json = await callAS({ action:'getFichePS', ps:psVal, jour:JOUR_COURANT, source:SOURCE });
     if (!json.ok) throw new Error(json.error || 'Erreur inconnue');
-
     if (!json.data) {
-      const sectLabel = SOURCE === 'lg' ? 'LA_GAILLARDE' : 'Tous Secteurs';
-      errEl.textContent = `PS ${psVal} non trouvé — ${sectLabel} — ${JOUR_COURANT}`;
+      errEl.textContent = `PS ${psVal} non trouvé — ${SOURCE === 'lg' ? 'LA_GAILLARDE' : 'Tous Secteurs'} — ${JOUR_COURANT}`;
       return;
     }
-
     afficherFiche(psVal, JOUR_COURANT, json.data);
-
   } catch(e) {
     errEl.textContent = 'Erreur : ' + e.message;
   } finally {
-    btn.textContent = 'ACCÉDER À MA FICHE';
-    btn.disabled = false;
+    btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
   }
+}
+
+// ── Par Nom (TS uniquement) ───────────────────────────────────────────────────
+async function accederParNom() {
+  const errEl = document.getElementById('errMsg');
+  const btn   = document.getElementById('btnAcceder');
+  errEl.textContent = '';
+
+  const nom = document.getElementById('inputNom').value.trim();
+  if (!nom || nom.length < 2) {
+    errEl.textContent = 'Saisissez au moins 2 caractères';
+    return;
+  }
+
+  btn.textContent = '⏳ Recherche…'; btn.disabled = true;
+  try {
+    const json = await callAS({ action:'getFicheParNom', nom, jour:JOUR_COURANT });
+    if (!json.ok) throw new Error(json.error || 'Erreur inconnue');
+
+    const results = (json.data && json.data.results) || [];
+    if (!results.length) {
+      errEl.textContent = `"${nom}" non trouvé en ${JOUR_COURANT} — Tous Secteurs`;
+      return;
+    }
+
+    if (results.length === 1) {
+      await chargerFicheDepuisResult(results[0]);
+    } else {
+      afficherChoix(results);
+    }
+  } catch(e) {
+    errEl.textContent = 'Erreur : ' + e.message;
+  } finally {
+    btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
+  }
+}
+
+// Charge la fiche depuis un résultat getFicheParNom
+async function chargerFicheDepuisResult(r) {
+  const psNum = parseInt(String(r.ps).match(/\d+/)?.[0] || '0');
+  if (!psNum) return;
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenChoix').style.display = 'none';
+  try {
+    const json = await callAS({ action:'getFichePS', ps:psNum, jour:JOUR_COURANT, source:'ts' });
+    if (json.ok && json.data) {
+      afficherFiche(psNum, JOUR_COURANT, json.data);
+    } else {
+      document.getElementById('screenLogin').style.display = 'flex';
+      document.getElementById('errMsg').textContent = `PS ${psNum} introuvable`;
+    }
+  } catch(e) {
+    document.getElementById('screenLogin').style.display = 'flex';
+    document.getElementById('errMsg').textContent = 'Erreur : ' + e.message;
+  }
+}
+
+// Écran de choix (plusieurs résultats Par Nom)
+function afficherChoix(results) {
+  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
+  document.getElementById('choixLabel').textContent =
+    `${results.length} affectation(s) trouvée(s) — ${jourInfo.label} :`;
+  window._choixResults = results;
+  document.getElementById('choixCards').innerHTML = results.map((r, i) => `
+    <div onclick="chargerFicheDepuisResult(window._choixResults[${i}])"
+      style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);
+        border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s"
+      onmouseover="this.style.borderColor='#E74C3C'"
+      onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--texte)">
+        PS ${r.ps} — ${r.lieudit || ''}
+      </div>
+      <div style="font-size:12px;color:var(--texte2);margin-top:4px">
+        ${r.nomComplet || r.nom || ''} · ${r.secteur || ''}
+      </div>
+    </div>`).join('');
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenChoix').style.display = 'flex';
 }
 
 // ── Affichage fiche ───────────────────────────────────────────────────────────
