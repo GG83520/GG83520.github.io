@@ -987,7 +987,11 @@ const HEURES_MEP = [
 ];
 
 const BENEVOLES = Array.from({length: 65}, (_, i) => `Bénévole_${String(i+1).padStart(3,'0')}`);
-const BENEVOLES_DATA = []; // {nom, tel} — alimenté depuis Sheets
+const BENEVOLES_DATA = []; // {nom, label, tel} — alimenté depuis Sheets
+// Map NOM seul → label complet (NOM+PRENOM) — pour l'affichage dans les selects
+// ex: { 'Bénévole_003': 'Bénévole_003 Corinne' }
+// Valeur stockée dans BENEVOLE_x = NOM seul ; affichage = label complet
+const BENEVOLES_LABEL = {};
 
 // ---- COURSES : brouillon fourni ----
 // Structure : { nomCourse: { jours: ['J2',...], ps: [100,101,...] } }
@@ -1179,10 +1183,11 @@ function renderSecteur(si) {
     `<option value="${sec}" ${sec === s.secteur ? 'selected' : ''}>${sec}</option>`
   ).join('');
 
-  // referant options
-  let refOpts = `<option value="">— Référant —</option>` + REFERANTS.map(r =>
-    `<option value="${r.nom}" ${r.nom === s.referant ? 'selected' : ''}>${r.nom}</option>`
-  ).join('');
+  // referant options — value = NOM seul, texte = NOM+PRENOM si dispo
+  let refOpts = `<option value="">— Référant —</option>` + REFERANTS.map(r => {
+    const label = BENEVOLES_LABEL[r.nom] || r.nom;
+    return `<option value="${r.nom}" ${r.nom === s.referant ? 'selected' : ''}>${label}</option>`;
+  }).join('');
 
   // heure mep options
   let heureOpts = `<option value="">— H MeP —</option>` + HEURES_MEP.map(h =>
@@ -1260,9 +1265,12 @@ function renderSecteur(si) {
 }
 
 function renderPSRow(si, ri, row, secteur) {
-  const benvOpts = (val) => `<option value="">—</option>` + BENEVOLES.map(b =>
-    `<option value="${b}" ${b === val ? 'selected' : ''}>${b}</option>`
-  ).join('');
+  // value = NOM seul (ce qui est stocké dans state et dans Sheets)
+  // texte affiché = NOM+PRENOM si disponible dans BENEVOLES_LABEL, sinon NOM seul
+  const benvOpts = (val) => `<option value="">—</option>` + BENEVOLES.map(b => {
+    const label = BENEVOLES_LABEL[b] || b;
+    return `<option value="${b}" ${b === val ? 'selected' : ''}>${label}</option>`;
+  }).join('');
   const vehOpts = (val) => `<option value="">—</option>` + VEHICULES.map(v =>
     `<option value="${v}" ${v === val ? 'selected' : ''}>${v}</option>`
   ).join('');
@@ -1708,9 +1716,17 @@ function openGaillarde() {
   // Peupler sélecteur de jours
   const sel = document.getElementById('glrdJourSelect');
   sel.innerHTML = JOURS.map(j =>
-    `<option value="${j.id}" ${j.id === currentJour ? 'selected' : ''}>${j.label} — ${j.date}</option>`
+    `<option value="${j.id}">${j.label} — ${j.date}</option>`
   ).join('');
-  glrdJour = currentJour;
+  // Forcer la valeur APRÈS innerHTML (évite que l'ancienne valeur du select
+  // soit relue par glrdChargerJour si le DOM n'a pas encore pris en compte
+  // l'attribut selected de la reconstruction innerHTML)
+  sel.value = currentJour;
+  glrdJour  = currentJour;
+  // Forcer le rechargement Sheets du jour courant à chaque ouverture
+  // (évite d'afficher un cache périmé si des données ont été sauvegardées
+  // depuis une autre session ou entre deux ouvertures du panneau)
+  delete glrdState[glrdJour];
   document.getElementById('glrdOverlay').classList.add('active');
   glrdChargerJour();
 }
@@ -1750,7 +1766,9 @@ function glrdTab(name, btn) {
 }
 
 async function glrdChargerJour() {
-  glrdJour = document.getElementById('glrdJourSelect').value;
+  // Lire le jour depuis le select ; si vide (premier rendu), garder glrdJour déjà fixé
+  const selVal = document.getElementById('glrdJourSelect').value;
+  if (selVal) glrdJour = selVal;
   if (!glrdState[glrdJour]) {
     // Charger depuis Sheets
     try {
@@ -1819,7 +1837,10 @@ function glrdPSOpts(selected) {
 
 function glrdBenvOpts(selected='') {
   return '<option value="">—</option>' +
-    BENEVOLES.map(b => `<option value="${b}" ${b===selected?'selected':''}>${b}</option>`).join('');
+    BENEVOLES.map(b => {
+      const label = BENEVOLES_LABEL[b] || b;
+      return `<option value="${b}" ${b===selected?'selected':''}>${label}</option>`;
+    }).join('');
 }
 
 function glrdVehOpts(selected='') {
@@ -1833,8 +1854,13 @@ function glrdHeurOpts(selected='') {
 }
 
 function glrdRefOpts(selected='') {
+  // REFERANTS contient {nom, tel} où nom = NOM+PRENOM (référants issus de Sheets)
+  // On cherche aussi dans BENEVOLES_LABEL pour l'affichage enrichi
   return '<option value="">—</option>' +
-    REFERANTS.map(r => `<option value="${r.nom}" ${r.nom===selected?'selected':''}>${r.nom}</option>`).join('');
+    REFERANTS.map(r => {
+      const label = BENEVOLES_LABEL[r.nom] || r.nom;
+      return `<option value="${r.nom}" ${r.nom===selected?'selected':''}>${label}</option>`;
+    }).join('');
 }
 
 function glrdRenderSaisie() {
@@ -2852,12 +2878,24 @@ async function loadReferentiels() {
     if (!json.ok) throw new Error(json.error);
     const d = json.data;
 
-    // Mise à jour des listes dynamiques
+    // ── Mise à jour des listes dynamiques ──────────────────────────────────
+    // BENEVOLES      : tableau des NOM seuls  → valeur sauvegardée dans Sheets
+    // BENEVOLES_DATA : tableau {nom, label, tel}
+    //   - nom   = NOM seul  (ex: "Bénévole_003")    → stockage BENEVOLE_x
+    //   - label = NOM+PRENOM (ex: "Bénévole_003 Corinne") → affichage <option>
+    // BENEVOLES_LABEL : Map NOM seul → label complet  → utilisé dans renderPSRow
     BENEVOLES.length = 0;
     BENEVOLES_DATA.length = 0;
+    if (!window.BENEVOLES_LABEL) window.BENEVOLES_LABEL = {};
+    // Vider avant rechargement
+    Object.keys(BENEVOLES_LABEL).forEach(k => delete BENEVOLES_LABEL[k]);
+
     d.benevoles.forEach(b => {
-      BENEVOLES.push(b.nom);
-      BENEVOLES_DATA.push({ nom: b.nom, tel: b.tel || '' });
+      const nomSeul = b.nomSeul || b.nom.split(' ')[0]; // NOM seul (fallback si nomSeul absent)
+      const label   = b.nom;                             // NOM+PRENOM (affichage)
+      BENEVOLES.push(nomSeul);
+      BENEVOLES_DATA.push({ nom: nomSeul, label, tel: b.tel || '' });
+      BENEVOLES_LABEL[nomSeul] = label;
     });
 
     // Référants : depuis REF_Referents (d.referants) si disponible, sinon depuis secteurs
