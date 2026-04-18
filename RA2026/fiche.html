@@ -1,943 +1,611 @@
-// ============================================================
-// ROC D'AZUR 2026 — Apps Script
-// Fichier : Code.gs
-// Déploiement : Web App — "Tout le monde" — "Exécuter en tant que : Moi"
-// ============================================================
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ROC D'AZUR 2026 — Ma Fiche</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap');
 
-// ── ID du Google Sheets (à remplacer après import) ────────────────────────────
-const SHEET_ID = '1nQYzi81hkTGifguzFHseVF5gumD_P8sJOPSRO6hy-48';
-
-// ── Noms des onglets (doivent correspondre exactement) ────────────────────────
-const TAB = {
-  BENEVOLES : 'REF_Benevoles',
-  SECTEURS  : 'REF_Secteurs',
-  PS        : 'REF_PS',
-  VEHICULES : 'REF_Vehicules',
-  COURSES   : 'REF_Courses',
-  REFERENTS : 'REF_Referents',
-  SAISIE    : 'SAISIE',
-  COMM      : 'SAISIE_COMM',
-  CONFIG    : 'CONFIG',
-};
-
-// ── Valeurs par défaut (utilisées si onglet CONFIG absent) ───────────────────
-const CONFIG_DEFAULTS = {
-  NB_VEHICULES: 25,
-  MAX_COM:      20,
-  MAX_CRS:      15,
-  MAX_CMV:      10,
-};
-
-// ── Lecture CONFIG depuis Sheets ──────────────────────────────────────────────
-function getConfig() {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const ws = ss.getSheetByName(TAB.CONFIG);
-    if (!ws) return CONFIG_DEFAULTS;
-    const data = ws.getDataRange().getValues();
-    const cfg  = Object.assign({}, CONFIG_DEFAULTS);
-    data.forEach(row => {
-      if (row[0] && row[1] !== '') cfg[String(row[0]).trim()] = Number(row[1]);
-    });
-    return cfg;
-  } catch(e) {
-    return CONFIG_DEFAULTS;
+  :root {
+    --rouge: #C0392B; --rouge-vif: #E74C3C; --orange: #E67E22;
+    --dark: #0D1117; --dark2: #161B22; --dark3: #1C2333; --card: #1E2A3A;
+    --texte: #E6EDF3; --texte2: #8B949E;
+    --vert: #238636; --vert-clair: #3FB950;
+    --bleu: #1F6FEB; --bleu-clair: #58A6FF;
+    --jaune: #D29922; --jaune-clair: #E3B341;
+    --or: #B7950B; --or-clair: #F0D060;
+    --border: rgba(255,255,255,0.08);
   }
-}
-
-// ── Maxima radios (A5) — chargé dynamiquement depuis CONFIG ──────────────────
-const RADIO_MAX = { com: 20, crs: 15, cmv: 10 }; // valeurs par défaut, écrasées par CONFIG
-
-// ── Response helpers ──────────────────────────────────────────────────────────
-function jsonOk(data, callback) {
-  const json = JSON.stringify({ ok: true, data });
-  const out  = callback
-    ? ContentService.createTextOutput(`${callback}(${json})`).setMimeType(ContentService.MimeType.JAVASCRIPT)
-    : ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
-  return out;
-}
-
-function jsonErr(msg, callback) {
-  const json = JSON.stringify({ ok: false, error: msg });
-  const out  = callback
-    ? ContentService.createTextOutput(`${callback}(${json})`).setMimeType(ContentService.MimeType.JAVASCRIPT)
-    : ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
-  return out;
-}
-
-// ============================================================
-// ROUTER PRINCIPAL
-// ============================================================
-
-function doGet(e) {
-  const action   = e.parameter.action || '';
-  const callback = e.parameter.callback || null;
-  try {
-    switch (action) {
-      case 'getReferentiels': return getReferentiels(e.parameter.jour, callback);
-      case 'getConfig':       return getConfigAction(callback);
-      case 'saveConfig':
-        return saveConfigAction(JSON.parse(e.parameter.data || '{}'), callback);
-      case 'getSaisie':       return getSaisie(e.parameter.jour, callback);
-      case 'getCommentaires': return getCommentaires(e.parameter.jour, callback);
-      case 'getFichePS':      return getFichePS(e.parameter.ps, e.parameter.jour, callback, e.parameter.source || 'ts');
-      case 'saveSaisie':
-        return saveSaisie({
-          jour: e.parameter.jour,
-          secteurs: JSON.parse(e.parameter.data || '[]'),
-        }, callback);
-      case 'saveCommentaires':
-        return saveCommentaires({
-          jour: e.parameter.jour,
-          secteur: e.parameter.secteur,
-          commentaires: JSON.parse(e.parameter.data || '[]'),
-        }, callback);
-      case 'importBenevoles':
-        return importBenevoles(JSON.parse(e.parameter.data || '[]'), callback);
-      case 'getSaisieGaillarde':
-        return getSaisieGaillarde(e.parameter.jour, callback);
-      case 'saveSaisieGaillarde':
-        return saveSaisieGaillarde({
-          jour: e.parameter.jour,
-          rows: JSON.parse(e.parameter.data || '[]'),
-        }, callback);
-      case 'getFicheParNom':
-        return getFicheParNom(e.parameter.nom, e.parameter.jour, callback);
-      default: return jsonErr('Action inconnue : ' + action, callback);
-    }
-  } catch(err) {
-    return jsonErr('Erreur serveur : ' + err.message, callback);
-  }
-}
-
-function doPost(e) {
-  try {
-    const payload = JSON.parse(e.postData.contents);
-    const action  = payload.action || '';
-    switch (action) {
-      case 'saveSaisie':       return saveSaisie(payload);
-      case 'saveCommentaires': return saveCommentaires(payload);
-      default:                 return jsonErr('Action inconnue : ' + action, callback);
-    }
-  } catch(err) {
-    return jsonErr('Erreur serveur : ' + err.message, callback);
-  }
-}
-
-// ============================================================
-// HELPERS SHEETS
-// ============================================================
-
-function getSheet(tabName) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const ws = ss.getSheetByName(tabName);
-  if (!ws) throw new Error('Onglet introuvable : ' + tabName);
-  return ws;
-}
-
-// Lit une feuille depuis la ligne 3 (ligne 1=titre, ligne 2=headers)
-// Retourne un tableau d'objets {col1: val, col2: val, ...}
-function sheetToObjects(tabName, headerRow) {
-  const ws   = getSheet(tabName);
-  const data = ws.getDataRange().getValues();
-  const headers = data[headerRow - 1].map(h => String(h).trim());
-  const rows    = [];
-  for (let i = headerRow; i < data.length; i++) {
-    const row = data[i];
-    if (row.every(c => c === '' || c === null)) continue; // ligne vide
-    const obj = {};
-    headers.forEach((h, j) => { if (h) obj[h] = row[j]; });
-    rows.push(obj);
-  }
-  return rows;
-}
-
-// ============================================================
-// GET — Référentiels (chargement initial de la page saisie)
-// ============================================================
-
-function getReferentiels(jour, callback) {
-  // Charger la config depuis Sheets
-  const cfg = getConfig();
-  const radioMax = { com: cfg.MAX_COM, crs: cfg.MAX_CRS, cmv: cfg.MAX_CMV };
-
-  const JOURS_VALIDES = ['J1','J2','J3','J4','J5'];
-  const jourValide = jour && JOURS_VALIDES.includes(jour) ? jour : null;
-
-  const allBenevoles = sheetToObjects(TAB.BENEVOLES, 2).filter(r => r['NOM']);
-
-  // Colonnes REF_Benevoles : ID_BENEVOLE, NOM, PRENOM, TELEPHONE, ACTIF, REFERENT, J1→J5
-
-  // Trouver la vraie clé de colonne pour ce jour (ex: "J1 MER 7/10" au lieu de "J1")
-  function findJourKey(row, jourCode) {
-    return Object.keys(row).find(k => k.startsWith(jourCode)) || jourCode;
-  }
-
-  const jourKeyBen = jourValide && allBenevoles.length > 0
-    ? findJourKey(allBenevoles[0], jourValide) : jourValide;
-
-  // Détection : les colonnes Jx sont-elles remplies ?
-  const colonneJxRemplies = jourValide &&
-    allBenevoles.some(r => {
-      const v = r[jourKeyBen];
-      return v === 1 || v === '1' || v === true;
-    });
-
-  const benevoles = allBenevoles
-    .filter(r => {
-      if (!colonneJxRemplies) return true;
-      const v = r[jourKeyBen];
-      return v === 1 || v === '1' || v === true;
-    })
-    .map(r => ({
-      id:     r['ID_BENEVOLE'],
-      nom:    (r['NOM'] + (r['PRENOM'] ? ' ' + r['PRENOM'] : '')).trim(),
-      nomSeul: r['NOM'],
-      tel:    r['TELEPHONE'] || ''
-    }));
-
-  const secteurs = sheetToObjects(TAB.SECTEURS, 2)
-    .filter(r => r['NOM_SECTEUR'])
-    .map(r => ({
-      nom:      r['NOM_SECTEUR'],
-      referant: r['REFERANT'],
-      tel:      r['TEL_REFERANT'],
-      hmep:     r['HMEP_SECTEUR'],
-    }));
-
-  const allPS = sheetToObjects(TAB.PS, 2)
-    .filter(r => r['NUM_PS'] && (r['LIEU_DIT'] || r['SECTEUR']));
-
-  const jourKeyPS = jourValide && allPS.length > 0
-    ? findJourKey(allPS[0], jourValide) : jourValide;
-
-  const colonneJxPSRemplies = jourValide &&
-    allPS.some(r => {
-      const v = r[jourKeyPS];
-      return v === 1 || v === '1' || v === true;
-    });
-
-  const ps = allPS
-    .filter(r => {
-      if (!colonneJxPSRemplies) return true;
-      const v = r[jourKeyPS];
-      return v === 1 || v === '1' || v === true;
-    })
-    .map(r => ({
-      num:       String(r['NUM_PS']),
-      lieudit:   r['LIEU_DIT'],
-      secteur:   r['SECTEUR'],
-      kmRavit:   r['KM_RAVIT']   || '',
-      kmAtelier: r['KM_ATELIER'] || '',
-    }));
-
-  const vehicules = sheetToObjects(TAB.VEHICULES, 2)
-    .filter(r => r['NOM_VEHICULE'])
-    .map(r => ({ id: r['ID_VEH'], nom: r['NOM_VEHICULE'], type: r['TYPE'] }));
-
-  const courses = sheetToObjects(TAB.COURSES, 2)
-    .filter(r => r['NOM_COURSE'] && !String(r['NOM_COURSE']).includes('compléter'))
-    .map(r => ({
-      id:      r['ID_COURSE'],
-      nom:     r['NOM_COURSE'],
-      jours:   ['J1','J2','J3','J4','J5'].filter(j => r[j] && r[j] !== ''),
-      ps:      String(r['PS_CONCERNES'] || '').split(',').map(s => parseInt(s.trim())).filter(Boolean),
-      couleur: r['COULEUR'] || '#8B5CF6',
-    }));
-
-  // Référants : lus depuis la colonne REFERENT de REF_Benevoles
-  // Si la colonne REFERENT n'existe pas → fallback sur REF_Referents → fallback sur tous bénévoles
-  let referants = [];
-
-  // Tentative 1 : colonne REFERENT dans REF_Benevoles (Option B)
-  const refDepuisBenevoles = allBenevoles.filter(r => {
-    const v = String(r['REFERENT'] || '').trim().toUpperCase();
-    return v === 'X' || v === 'OUI' || v === '1';
-  });
-
-  if (refDepuisBenevoles.length > 0) {
-    // Colonne REFERENT présente et remplie → on l'utilise
-    referants = refDepuisBenevoles.map(r => ({
-      nom: (r['NOM'] + (r['PRENOM'] ? ' ' + r['PRENOM'] : '')).trim(),
-      tel: r['TELEPHONE'] || ''
-    }));
-  } else {
-    // Tentative 2 : onglet REF_Referents (ancienne méthode)
-    try {
-      const fromSheet = sheetToObjects(TAB.REFERENTS, 2).filter(r => r['NOM']);
-      if (fromSheet.length > 0) {
-        referants = fromSheet.map(r => ({
-          nom: (r['NOM'] + (r['PRENOM'] ? ' ' + r['PRENOM'] : '')).trim(),
-          tel: r['TELEPHONE'] || ''
-        }));
-      }
-    } catch(e) {}
-
-    // Tentative 3 : fallback tous bénévoles
-    if (referants.length === 0) {
-      referants = benevoles.map(b => ({ nom: b.nom, tel: b.tel }));
-    }
-  }
-
-  return jsonOk({ benevoles, secteurs, ps, vehicules, courses, referants, radioMax, config: cfg }, callback);
-}
-
-// ============================================================
-// GET — Saisie d'un jour (lecture pour pré-remplissage)
-// ============================================================
-
-function getSaisie(jour, callback) {
-  if (!jour) return jsonErr('Paramètre jour manquant', callback);
-  const rows = sheetToObjects(TAB.SAISIE, 2).filter(r => r['JOUR'] === jour);
-
-  // Regroupe par secteur
-  const secteursMap = {};
-  rows.forEach(r => {
-    const key = r['SECTEUR'];
-    if (!secteursMap[key]) {
-      secteursMap[key] = {
-        secteur:  r['SECTEUR'],
-        referant: r['REFERANT'],
-        hmepSect: r['HMEP_SECT'],
-        rows:     [],
-      };
-    }
-    secteursMap[key].rows.push({
-      ps:    r['LIEU_DIT_PS'],
-      hmep:  r['HMEP_SITE'],
-      vehA:  r['VEH_A'],
-      vehB:  r['VEH_B'],
-      b1:    r['BENEVOLE_1'],
-      b2:    r['BENEVOLE_2'],
-      b3:    r['BENEVOLE_3'],
-      b4:    r['BENEVOLE_4'],
-      b5:    r['BENEVOLE_5'],
-      com:   Number(r['NB_COM'])  || 0,
-      crs:   Number(r['NB_CRS'])  || 0,
-      cmv:   Number(r['NB_CMV'])  || 0,
-      obs:   r['OBSERVATIONS'],
-    });
-  });
-
-  return jsonOk(Object.values(secteursMap), callback);
-}
-
-// ============================================================
-// GET — Commentaires d'un jour
-// ============================================================
-
-function getCommentaires(jour, callback) {
-  if (!jour) return jsonErr('Paramètre jour manquant', callback);
-  const rows = sheetToObjects(TAB.COMM, 2).filter(r => r['JOUR'] === jour);
-  const result = {};
-  rows.forEach(r => {
-    result[r['SECTEUR']] = [
-      r['COMM_1'] || '',
-      r['COMM_2'] || '',
-      r['COMM_3'] || '',
-    ];
-  });
-  return jsonOk(result, callback);
-}
-
-// ============================================================
-// GET — Fiche PS (pour la fiche bénévole mobile)
-// ============================================================
-
-// ── Helper : construit la fiche depuis une ligne SAISIE (Tous Secteurs) ───────
-function buildFicheTS(found, rows, jour, psNum) {
-  const secteurs = sheetToObjects(TAB.SECTEURS, 2);
-  const sectObj  = secteurs.find(s => s['NOM_SECTEUR'] === found['SECTEUR']);
-
-  let telReferant = '';
-  try {
-    const referents = sheetToObjects(TAB.REFERENTS, 2);
-    const refObj = referents.find(r => r['NOM'] === found['REFERANT']);
-    if (refObj) telReferant = String(refObj['TELEPHONE'] || '');
-  } catch(e) {}
-  if (!telReferant && sectObj) telReferant = String(sectObj['TEL_REFERANT'] || '');
-
-  const coequipiers = rows
-    .filter(r => r['SECTEUR'] === found['SECTEUR'] && r['LIEU_DIT_PS'] !== found['LIEU_DIT_PS'])
-    .filter(r => r['BENEVOLE_1'] || r['BENEVOLE_2'] || r['BENEVOLE_3'])
-    .map(r => ({ ps: r['LIEU_DIT_PS'], benevoles: [r['BENEVOLE_1'],r['BENEVOLE_2'],r['BENEVOLE_3']].filter(Boolean) }));
-
-  const comms = sheetToObjects(TAB.COMM, 2)
-    .find(r => r['JOUR'] === jour && r['SECTEUR'] === found['SECTEUR']);
-  const commentaires = comms
-    ? [comms['COMM_1']||'', comms['COMM_2']||'', comms['COMM_3']||''].filter(Boolean) : [];
-
-  const allCourses = sheetToObjects(TAB.COURSES, 2)
-    .filter(r => r['NOM_COURSE'] && !String(r['NOM_COURSE']).includes('compléter'));
-  const courses = allCourses
-    .filter(r => String(r['PS_CONCERNES']||'').split(',').map(s=>parseInt(s.trim())).includes(psNum))
-    .map(r => ({ nom: r['NOM_COURSE'], jours: ['J1','J2','J3','J4','J5'].filter(j=>r[j]&&r[j]!==''), couleur: r['COULEUR']||'#8B5CF6' }));
-
-  let telB1 = '';
-  const b1Nom = found['BENEVOLE_1'];
-  if (b1Nom) {
-    try {
-      const b1Trim = String(b1Nom).trim();
-      const benData = sheetToObjects(TAB.BENEVOLES, 2).find(r => {
-        const nom = String(r['NOM']||'').trim();
-        const prenom = String(r['PRENOM']||'').trim();
-        return (prenom ? nom+' '+prenom : nom) === b1Trim || nom === b1Trim;
-      });
-      if (benData) telB1 = String(benData['TELEPHONE'] || '');
-    } catch(e) {}
-  }
-
-  return {
-    secteur:     found['SECTEUR'],
-    referant:    found['REFERANT'],
-    telReferant, telB1,
-    hmepSect:    found['HMEP_SECT'],
-    ps:          found['LIEU_DIT_PS'],
-    hmep:        found['HMEP_SITE'],
-    vehA:        found['VEH_A'],
-    vehB:        found['VEH_B'],
-    benevoles:   [found['BENEVOLE_1'],found['BENEVOLE_2'],found['BENEVOLE_3'],found['BENEVOLE_4'],found['BENEVOLE_5']].filter(Boolean),
-    com:         Number(found['NB_COM'])  || 0,
-    crs:         Number(found['NB_CRS'])  || 0,
-    cmv:         Number(found['NB_CMV'])  || 0,
-    obs:         found['OBSERVATIONS'] || '',
-    coequipiers, commentaires, courses,
-  };
-}
-
-// ── Helper : construit la fiche depuis une ligne SAISIE_GAILLARDE ─────────────
-function buildFicheLG(obj) {
-  const telRef = (() => {
-    try {
-      const b1 = String(obj['REFERENT'] || '').trim();
-      const b1Seul = b1.split(' ')[0];
-      const ben = sheetToObjects(TAB.BENEVOLES, 2).find(r =>
-        (String(r['NOM']||'').trim()+' '+String(r['PRENOM']||'').trim()).trim() === b1 ||
-        String(r['NOM']||'').trim() === b1Seul
-      );
-      return ben ? String(ben['TELEPHONE'] || '') : '';
-    } catch(e) { return ''; }
-  })();
-  return {
-    secteur:     'LA_GAILLARDE',
-    referant:    obj['MEP_PAR'] || '',
-    telReferant: telRef,
-    telB1:       telRef,
-    hmepSect:    obj['HMEP'] || '',
-    ps:          obj['NUM_PS'] + (obj['LIEU_DIT'] ? ' - ' + obj['LIEU_DIT'] : ''),
-    hmep:        obj['HMEP_RDV'] || obj['HMEP'] || '',
-    vehA:        obj['VEH_A'] || '',
-    vehB:        obj['VEH_B'] || '',
-    benevoles:   [obj['REFERENT'],obj['ACC_1'],obj['ACC_2'],obj['ACC_3']].filter(Boolean),
-    com:         Number(obj['NB_COM']) || 0,
-    crs:         Number(obj['NB_CRS']) || 0,
-    cmv:         Number(obj['NB_CMV']) || 0,
-    obs:         '',
-    coequipiers: [],
-    commentaires:[obj['COMM_A']||'', obj['COMM_B']||''].filter(Boolean),
-    courses:     [],
-    kmRavit:     obj['KM_RAVIT'] || '',
-    kmAtelier:   obj['KM_ATELIER'] || '',
-  };
-}
-
-function getFichePS(psNumStr, jour, callback, source) {
-  if (!psNumStr || !jour) return jsonErr('Paramètres ps et jour requis', callback);
-  const psNum = parseInt(psNumStr);
-  // source = 'lg' → chercher uniquement dans SAISIE_GAILLARDE
-  // source = 'ts' ou absent → chercher uniquement dans SAISIE (Tous Secteurs)
-  const searchLG = (source === 'lg');
-
-  if (!searchLG) {
-    // ── SAISIE Tous Secteurs ──────────────────────────────────────────────────
-    const rows = sheetToObjects(TAB.SAISIE, 2).filter(r => r['JOUR'] === jour);
-    let found = null;
-    for (const r of rows) {
-      const nums = String(r['NUM_PS'] || '').match(/\d+/g)?.map(Number) || [];
-      if (nums.includes(psNum)) { found = r; break; }
-    }
-    if (!found) return jsonOk(null, callback);
-    return jsonOk(buildFicheTS(found, rows, jour, psNum), callback);
-
-  } else {
-    // ── SAISIE_GAILLARDE ─────────────────────────────────────────────────────
-    try {
-      const ws = getGaillardeSheet();
-      const data = ws.getDataRange().getValues();
-      if (data.length >= 2) {
-        const headers = data[0].map(h => String(h).trim());
-        for (let i = 1; i < data.length; i++) {
-          const row = data[i];
-          if (String(row[0]).trim() !== jour) continue;
-          const obj = {};
-          headers.forEach((h, j) => { obj[h] = row[j]; });
-          const rowPS = parseInt(String(obj['NUM_PS'] || '').match(/\d+/)?.[0] || '0');
-          if (rowPS === psNum) return jsonOk(buildFicheLG(obj), callback);
-        }
-      }
-    } catch(e) { Logger.log('getFichePS LG err: ' + e.message); }
-    return jsonOk(null, callback);
-  }
-}
-
-// ============================================================
-// POST — Sauvegarde saisie (upsert ligne par ligne JOUR+NUM_PS)
-// ============================================================
-
-// ── Helper : extrait le NOM seul (premier mot) depuis "NOM PRENOM" ou "NOM" ──
-// Garantit que BENEVOLE_x dans SAISIE ne stocke que le NOM, quelle que soit
-// la valeur reçue du front (b.nom = "Bénévole_003 Corinne" ou "Bénévole_003").
-function nomSeul(val) {
-  if (!val) return '';
-  return String(val).trim().split(/\s+/)[0];
-}
-
-function saveSaisie(payload, callback) {
-  const { jour, secteurs } = payload;
-  if (!jour || !secteurs) return jsonErr('Données incomplètes', callback);
-
-  const ws      = getSheet(TAB.SAISIE);
-  const data    = ws.getDataRange().getValues();
-  const headers = data[1]; // ligne 2 = headers (index 1)
-
-  const col = {};
-  headers.forEach((h, i) => { col[String(h).trim()] = i; });
-
-  const now = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm');
-
-  // Construire les nouvelles lignes depuis le payload
-  // BENEVOLE_x : on ne stocke que le NOM (premier mot) pour cohérence avec
-  // les anciens enregistrements et pour que getFichePS / telB1 fonctionnent.
-  const newLines = [];
-  secteurs.forEach(s => {
-    s.rows.forEach(r => {
-      if (!r.ps) return;
-      const nums = String(r.ps).match(/\d+/g) || ['0'];
-      const line = new Array(headers.length).fill('');
-      line[col['JOUR']]         = jour;
-      line[col['SECTEUR']]      = s.secteur;
-      line[col['REFERANT']]     = s.referant;
-      line[col['HMEP_SECT']]    = s.hmepSect;
-      line[col['NUM_PS']]       = nums[0];
-      line[col['LIEU_DIT_PS']]  = r.ps;
-      line[col['HMEP_SITE']]    = r.hmep;
-      line[col['VEH_A']]        = r.vehA;
-      line[col['VEH_B']]        = r.vehB;
-      line[col['BENEVOLE_1']]   = nomSeul(r.b1);  // NOM seul — ex: "Bénévole_003"
-      line[col['BENEVOLE_2']]   = nomSeul(r.b2);
-      line[col['BENEVOLE_3']]   = nomSeul(r.b3);
-      line[col['BENEVOLE_4']]   = nomSeul(r.b4);
-      line[col['BENEVOLE_5']]   = nomSeul(r.b5);
-      line[col['NB_COM']]       = r.com || 0;
-      line[col['NB_CRS']]       = r.crs || 0;
-      line[col['NB_CMV']]       = r.cmv || 0;
-      line[col['OBSERVATIONS']] = r.obs || '';
-      line[col['TIMESTAMP']]    = now;
-      newLines.push(line);
-    });
-  });
-
-  // Identifier les secteurs envoyés dans ce payload
-  const secteursConcernes = new Set(secteurs.map(s => s.secteur));
-
-  // Supprimer toutes les lignes du jour dans Sheets (en sens inverse pour éviter le décalage)
-  // On relit les données fraîches du sheet
-  const dataFresh = ws.getDataRange().getValues();
-  const colFresh  = {};
-  dataFresh[1].forEach((h, i) => { colFresh[String(h).trim()] = i; });
-
-  for (let i = dataFresh.length - 1; i >= 2; i--) {
-    const rowJour = String(dataFresh[i][colFresh['JOUR']] || '').trim();
-    if (rowJour === jour) {
-      ws.deleteRow(i + 1); // +1 car Sheets est 1-based
-    }
-  }
-
-  // Réécrire les nouvelles lignes
-  if (newLines.length > 0) {
-    ws.getRange(ws.getLastRow() + 1, 1, newLines.length, newLines[0].length)
-      .setValues(newLines);
-  }
-
-  return jsonOk({ updated: 0, inserted: newLines.length }, callback);
-}
-
-// ============================================================
-// POST — Sauvegarde commentaires secteur
-// ============================================================
-
-function saveCommentaires(payload, callback) {
-  const { jour, secteur, commentaires } = payload;
-  if (!jour || !secteur) return jsonErr('Données incomplètes', callback);
-
-  const ws      = getSheet(TAB.COMM);
-  const data    = ws.getDataRange().getValues();
-  const headers = data[1];
-  const col     = {};
-  headers.forEach((h, i) => { col[String(h).trim()] = i; });
-
-  const now = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd HH:mm');
-
-  // Cherche ligne existante JOUR + SECTEUR
-  let foundRow = -1;
-  for (let i = 2; i < data.length; i++) {
-    if (String(data[i][col['JOUR']]).trim()    === jour &&
-        String(data[i][col['SECTEUR']]).trim() === secteur) {
-      foundRow = i + 1; break;
-    }
-  }
-
-  const line = new Array(headers.length).fill('');
-  line[col['JOUR']]      = jour;
-  line[col['SECTEUR']]   = secteur;
-  line[col['COMM_1']]    = commentaires[0] || '';
-  line[col['COMM_2']]    = commentaires[1] || '';
-  line[col['COMM_3']]    = commentaires[2] || '';
-  line[col['TIMESTAMP']] = now;
-
-  if (foundRow > 0) {
-    ws.getRange(foundRow, 1, 1, line.length).setValues([line]);
-  } else {
-    ws.getRange(ws.getLastRow() + 1, 1, 1, line.length).setValues([line]);
-  }
-
-  return jsonOk({ action: foundRow > 0 ? 'updated' : 'inserted' }, callback);
-}
-
-// ============================================================
-// TEST — Fonctions de test locales (exécuter dans l'éditeur)
-// Note : on appelle la logique métier directement, sans le
-//        wrapper HTTP (ContentService ne fonctionne pas en local)
-// ============================================================
-
-function testGetReferentiels() {
-  const ss        = SpreadsheetApp.openById(SHEET_ID);
-  const benevoles = sheetToObjects(TAB.BENEVOLES, 2).filter(r => r['NOM']);
-  const secteurs  = sheetToObjects(TAB.SECTEURS,  2).filter(r => r['NOM_SECTEUR']);
-  const ps        = sheetToObjects(TAB.PS,        2).filter(r => r['NUM_PS']);
-  const vehicules = sheetToObjects(TAB.VEHICULES, 2).filter(r => r['NOM_VEHICULE']);
-  const courses   = sheetToObjects(TAB.COURSES,   2).filter(r => r['NOM_COURSE'] && !String(r['NOM_COURSE']).includes('compléter'));
-
-  Logger.log('✓ Bénévoles : ' + benevoles.length);
-  Logger.log('✓ Secteurs  : ' + secteurs.length);
-  Logger.log('✓ PS        : ' + ps.length);
-  Logger.log('✓ Véhicules : ' + vehicules.length);
-  Logger.log('✓ Courses   : ' + courses.length);
-  Logger.log('--- Premier bénévole : ' + JSON.stringify(benevoles[0]));
-  Logger.log('--- Premier secteur  : ' + JSON.stringify(secteurs[0]));
-}
-
-function testGetFichePS() {
-  // Teste la récupération du PS 33 en J1
-  const rows = sheetToObjects(TAB.SAISIE, 2).filter(r => r['JOUR'] === 'J1');
-  Logger.log('Lignes J1 dans SAISIE : ' + rows.length);
-  const found = rows.find(r => {
-    const nums = String(r['NUM_PS'] || '').match(/\d+/g)?.map(Number) || [];
-    return nums.includes(33);
-  });
-  if (found) {
-    Logger.log('✓ PS 33 trouvé : ' + JSON.stringify(found));
-  } else {
-    Logger.log('⚠ PS 33 non trouvé en J1 — vérifier onglet SAISIE');
-  }
-}
-
-function testSaveSaisie() {
-  const payload = {
-    action: 'saveSaisie',
-    jour: 'J1',
-    secteurs: [{
-      secteur: 'LA_GAILLARDE', referant: 'Référant_01', hmepSect: '6h00',
-      rows: [
-        { ps:'33 - Impasse des Celtes', hmep:'6h30', vehA:'MITSU', vehB:'',
-          b1:'Bénévole_006', b2:'Bénévole_007', b3:'', b4:'', b5:'',
-          com:4, crs:1, cmv:1, obs:'Test depuis Apps Script' }
-      ]
-    }]
-  };
-  const result = JSON.parse(saveSaisie(payload).getContent());
-  Logger.log('✓ saveSaisie : ' + JSON.stringify(result));
-}
-
-// ============================================================
-// IMPORT BENEVOLES — depuis admin.html (xlsx → Sheets)
-// Met à jour uniquement les colonnes J1→J5 dans REF_Benevoles
-// Identification par NOM (correspondance exacte)
-// ============================================================
-function importBenevoles(batch, callback) {
-  if (!batch || !batch.length) return jsonErr('Données vides', callback);
-
-  const ws      = getSheet(TAB.BENEVOLES);
-  const data    = ws.getDataRange().getValues();
-  const headers = data[1].map(h => String(h).trim()); // ligne 2 = headers
-
-  // Trouver les indices des colonnes Jx dans Sheets
-  // Les headers sont du type "J1 MER 7/10", on cherche ceux qui commencent par J1..J5
-  const JX_CODES = ['J1','J2','J3','J4','J5'];
-  const jxColIdx = JX_CODES.map(jx =>
-    headers.findIndex(h => h.startsWith(jx))
-  );
-
-  // Index de la colonne NOM
-  const nomIdx = headers.indexOf('NOM');
-  if (nomIdx === -1) return jsonErr('Colonne NOM introuvable dans REF_Benevoles', callback);
-
-  let updated = 0;
-
-  batch.forEach(b => {
-    // Chercher par NOM (colonne B)
-    for (let r = 2; r < data.length; r++) {
-      const cellNom = String(data[r][nomIdx] || '').trim();
-      if (cellNom === (b.nomSeul || b.nom.split(' ')[0])) {
-        // Mettre à jour les colonnes Jx
-        JX_CODES.forEach((jx, i) => {
-          const colIdx = jxColIdx[i];
-          if (colIdx !== -1) {
-            ws.getRange(r + 1, colIdx + 1).setValue(b.jx[i] === 1 ? 1 : '');
-          }
-        });
-        updated++;
-        break;
-      }
-    }
-  });
-
-  return jsonOk({ updated, total: batch.length }, callback);
-}
-
-// ============================================================
-// CONFIG — Lecture et écriture des paramètres de l'événement
-// ============================================================
-
-function getConfigAction(callback) {
-  return jsonOk(getConfig(), callback);
-}
-
-function saveConfigAction(data, callback) {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    let ws = ss.getSheetByName(TAB.CONFIG);
-
-    // Créer l'onglet CONFIG s'il n'existe pas
-    if (!ws) {
-      ws = ss.insertSheet(TAB.CONFIG);
-      ws.getRange(1, 1).setValue('PARAM');
-      ws.getRange(1, 2).setValue('VALEUR');
-      ws.getRange(1, 3).setValue('DESCRIPTION');
-    }
-
-    // Écrire les valeurs (upsert par clé PARAM)
-    const existing = ws.getDataRange().getValues();
-    const paramCol = {}; // PARAM → rowIndex
-    existing.forEach((row, i) => {
-      if (i === 0) return; // skip header
-      if (row[0]) paramCol[String(row[0]).trim()] = i + 1;
-    });
-
-    const descriptions = {
-      NB_VEHICULES: 'Nombre maximum de véhicules disponibles',
-      MAX_COM:      'Nombre maximum de radios COM',
-      MAX_CRS:      'Nombre maximum de radios CRS (Courses)',
-      MAX_CMV:      'Nombre maximum de radios CMV (Com Véhicule)',
-    };
-
-    let updated = 0;
-    Object.entries(data).forEach(([key, val]) => {
-      const rowIdx = paramCol[key];
-      if (rowIdx) {
-        ws.getRange(rowIdx, 2).setValue(Number(val));
-      } else {
-        // Nouvelle ligne
-        const nextRow = ws.getLastRow() + 1;
-        ws.getRange(nextRow, 1).setValue(key);
-        ws.getRange(nextRow, 2).setValue(Number(val));
-        ws.getRange(nextRow, 3).setValue(descriptions[key] || '');
-      }
-      updated++;
-    });
-
-    return jsonOk({ updated, config: getConfig() }, callback);
-  } catch(e) {
-    return jsonErr('Erreur saveConfig : ' + e.message, callback);
-  }
-}
-
-// ============================================================
-// SAISIE_GAILLARDE — Onglet dédié PS individuels
-// ============================================================
-
-// Colonnes SAISIE_GAILLARDE
-// JOUR | NUM_PS | LIEU_DIT | REFERENT | ACC_1 | ACC_2 | ACC_3 |
-// VEH_A | VEH_B | NB_COM | NB_CRS | NB_CMV |
-// MEP_PAR | MEP_LIEU | HMEP | KM_RAVIT | KM_ATELIER |
-// COURSE_1 | COURSE_2 | COURSE_3 | COURSE_4 |
-// PREMIER_PART | COMM_A | COMM_B | COMM_C | TIMESTAMP
-
-const GAILLARDE_HEADERS = [
-  'JOUR','NUM_PS','LIEU_DIT','REFERENT','ACC_1','ACC_2','ACC_3',
-  'VEH_A','VEH_B','NB_COM','NB_CRS','NB_CMV',
-  'MEP_PAR','MEP_LIEU','HMEP','HMEP_RDV','KM_RAVIT','KM_ATELIER',
-  'COURSE_1','COURSE_2','COURSE_3','COURSE_4',
-  'PREMIER_PART','COMM_A','COMM_B','COMM_C','TIMESTAMP'
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--dark); color: var(--texte); font-family: 'Barlow', sans-serif; font-size: 15px; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* LOGIN */
+  #screenLogin { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px; background: radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.15) 0%, transparent 70%), var(--dark); }
+  .login-logo { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 3px; color: var(--texte2); text-transform: uppercase; margin-bottom: 8px; }
+  .login-title { font-family: 'Barlow Condensed', sans-serif; font-size: 38px; font-weight: 900; letter-spacing: 2px; color: var(--texte); line-height: 1; text-align: center; margin-bottom: 4px; }
+  .login-title span { color: var(--rouge-vif); }
+  .login-subtitle { font-size: 13px; color: var(--texte2); text-align: center; margin-bottom: 36px; font-weight: 300; }
+  .login-card { background: var(--dark2); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px; width: 100%; max-width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+  .input-group { margin-bottom: 16px; }
+  .input-group label { display: block; font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; color: var(--texte2); text-transform: uppercase; margin-bottom: 7px; }
+  .input-group input { width: 100%; background: var(--dark3); border: 1px solid var(--border); border-radius: 10px; color: var(--texte); padding: 14px 16px; font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: 2px; text-align: center; outline: none; transition: border-color 0.2s, background 0.2s; -webkit-appearance: none; }
+  .input-group input:focus { border-color: var(--rouge); background: rgba(192,57,43,0.08); }
+  .input-group input.error { border-color: var(--rouge-vif); background: rgba(231,76,60,0.1); animation: shake 0.3s ease; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+  /* Boutons source */
+  .source-btns { display: flex; gap: 10px; }
+  .source-btn { flex: 1; padding: 13px 8px; border-radius: 10px; border: 1.5px solid var(--border); background: rgba(255,255,255,0.04); color: var(--texte2); cursor: pointer; text-align: center; font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; transition: all 0.15s; line-height: 1.3; }
+  .source-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--texte); }
+  .source-btn.active-ts { background: rgba(192,57,43,0.2); border-color: var(--rouge-vif); color: #fff; }
+  .source-btn.active-lg { background: rgba(183,149,11,0.2); border-color: var(--or-clair); color: var(--or-clair); }
+
+  /* Jours */
+  .jour-btn { width: 100%; padding: 11px 16px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1); color: var(--texte2); cursor: pointer; text-align: left; font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 600; letter-spacing: 1px; transition: all 0.15s; }
+  .jour-btn.active { background: rgba(192,57,43,0.15); border-color: var(--rouge-vif); color: var(--texte); font-weight: 700; }
+
+  .btn-login { width: 100%; padding: 15px; background: linear-gradient(135deg, var(--rouge) 0%, var(--rouge-vif) 100%); border: none; border-radius: 10px; color: #fff; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; letter-spacing: 2px; cursor: pointer; transition: opacity 0.15s, transform 0.1s; margin-top: 4px; box-shadow: 0 4px 16px rgba(192,57,43,0.4); }
+  .btn-login:active { opacity: 0.85; transform: scale(0.98); }
+  .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .error-msg { color: var(--rouge-vif); font-size: 13px; text-align: center; margin-top: 12px; font-weight: 500; min-height: 18px; }
+  .login-jour-badge { text-align: center; margin-top: 20px; font-size: 12px; color: var(--texte2); }
+  .login-jour-badge strong { color: var(--jaune-clair); font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+
+  /* FICHE */
+  #screenFiche { display: none; flex-direction: column; min-height: 100vh; }
+  .fiche-header { background: linear-gradient(135deg, var(--dark2) 0%, #1a0a08 100%); border-bottom: 3px solid var(--rouge); padding: 14px 16px 12px; position: sticky; top: 0; z-index: 50; }
+  .fiche-header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .fiche-event { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--rouge-vif); text-transform: uppercase; }
+  .btn-retour { background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--texte2); border-radius: 6px; padding: 5px 12px; font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .fiche-ps-title { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; line-height: 1.1; color: var(--texte); }
+  .fiche-ps-title span { color: var(--rouge-vif); }
+  .fiche-jour-bar { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .jour-chip { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 1px; padding: 3px 10px; border-radius: 20px; background: var(--rouge); color: #fff; }
+  .date-chip { font-size: 12px; color: var(--texte2); font-weight: 400; }
+  .fiche-body { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Cards */
+  .fiche-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .fiche-card-header { display: flex; align-items: center; gap: 10px; padding: 11px 16px 10px; border-bottom: 1px solid var(--border); }
+  .card-icon { font-size: 18px; line-height: 1; }
+  .card-title { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; color: var(--texte2); text-transform: uppercase; }
+  .fiche-card-body { padding: 14px 16px; }
+  .info-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .info-row:first-child { padding-top: 0; }
+  .info-label { font-size: 12px; color: var(--texte2); font-weight: 400; white-space: nowrap; min-width: 90px; padding-top: 1px; }
+  .info-val { font-family: 'Barlow Condensed', sans-serif; font-size: 17px; font-weight: 700; color: var(--texte); text-align: right; line-height: 1.2; }
+  .info-val.highlight { color: var(--jaune-clair); }
+  .info-val.secteur { color: var(--bleu-clair); }
+  .info-val.tel { color: var(--jaune-clair); font-size: 20px; letter-spacing: 1px; }
+
+  .hmep-display { text-align: center; padding: 10px 0 6px; }
+  .hmep-heure { font-family: 'Barlow Condensed', sans-serif; font-size: 56px; font-weight: 900; line-height: 1; color: var(--vert-clair); text-shadow: 0 0 30px rgba(63,185,80,0.4); }
+  .hmep-label { font-size: 12px; color: var(--texte2); margin-top: 4px; letter-spacing: 1px; }
+
+  .veh-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(31,111,235,0.15); border: 1px solid rgba(88,166,255,0.25); border-radius: 8px; padding: 10px 16px; margin-top: 4px; width: 100%; }
+  .veh-icon { font-size: 22px; }
+  .veh-nom { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--bleu-clair); }
+
+  .radios-grid { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
+  .radio-card { flex: 1; min-width: 80px; border-radius: 10px; padding: 12px 10px; text-align: center; border: 1px solid; }
+  .radio-card.com { background: rgba(31,111,235,0.12); border-color: rgba(88,166,255,0.3); }
+  .radio-card.crs { background: rgba(192,57,43,0.12); border-color: rgba(231,76,60,0.3); }
+  .radio-card.cmv { background: rgba(35,134,54,0.12); border-color: rgba(63,185,80,0.3); }
+  .radio-card.off { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.06); opacity: 0.4; }
+  .radio-nb { font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 900; line-height: 1; }
+  .radio-card.com .radio-nb { color: var(--bleu-clair); }
+  .radio-card.crs .radio-nb { color: var(--rouge-vif); }
+  .radio-card.cmv .radio-nb { color: var(--vert-clair); }
+  .radio-card.off .radio-nb { color: var(--texte2); }
+  .radio-type { font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--texte2); margin-top: 3px; }
+
+  .course-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .course-item:last-child { border-bottom: none; }
+  .course-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .course-nom { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: var(--texte); flex: 1; }
+
+  .equipe-list { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+  .equipe-item { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; padding: 8px 12px; }
+  .equipe-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--dark3), var(--card)); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700; color: var(--texte2); flex-shrink: 0; }
+  .equipe-nom { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--texte); flex: 1; }
+  .equipe-ps { font-size: 11px; color: var(--texte2); background: rgba(255,255,255,0.06); border-radius: 4px; padding: 2px 6px; }
+
+  .obs-text { font-size: 14px; color: var(--jaune-clair); line-height: 1.5; font-style: italic; padding: 4px 0; }
+
+  .urgence-banner { background: rgba(192,57,43,0.12); border: 1px solid rgba(231,76,60,0.3); border-radius: 12px; padding: 14px 16px; text-align: center; }
+  .urgence-title { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: var(--rouge-vif); text-transform: uppercase; margin-bottom: 4px; }
+  .urgence-text { font-size: 13px; color: var(--texte2); line-height: 1.4; }
+  .urgence-text strong { color: var(--texte); }
+
+  .notfound { text-align: center; padding: 40px 20px; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: var(--texte2); }
+  .notfound span { display: block; font-size: 48px; margin-bottom: 12px; }
+
+  /* Badge secteur header fiche */
+  .secteur-badge { display: inline-block; margin-left: 8px; font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; vertical-align: middle; }
+  .secteur-badge.ts { background: rgba(192,57,43,0.25); color: var(--rouge-vif); }
+  .secteur-badge.lg { background: rgba(183,149,11,0.25); color: var(--or-clair); }
+</style>
+</head>
+<body>
+
+<!-- ======= ÉCRAN LOGIN ======= -->
+<div id="screenLogin">
+  <div class="login-logo">CCFF · RSA</div>
+  <div class="login-title">ROC D'AZUR <span>2026</span></div>
+  <div class="login-subtitle">Ma fiche point signaleur</div>
+
+  <div class="login-card">
+
+    <!-- Étape 1 : Secteur -->
+    <div class="input-group">
+      <label>Secteur</label>
+      <div class="source-btns">
+        <button class="source-btn active-ts" id="btnTS" onclick="setSource('ts')">
+          🗺 Tous Secteurs
+        </button>
+        <button class="source-btn" id="btnLG" onclick="setSource('lg')">
+          🏔 LA_GAILLARDE
+        </button>
+      </div>
+    </div>
+
+    <!-- Étape 2 : Mode recherche (TS uniquement) -->
+    <div class="input-group" id="modeRechercheGroup">
+      <label>Rechercher par</label>
+      <div class="source-btns">
+        <button class="source-btn active-ts" id="btnModePS" onclick="setMode('ps')">🗺 Numéro PS</button>
+        <button class="source-btn" id="btnModeNom" onclick="setMode('nom')">👤 Nom</button>
+      </div>
+    </div>
+
+    <!-- Étape 3a : Numéro PS -->
+    <div class="input-group" id="groupPS">
+      <label>Numéro de point signaleur</label>
+      <input type="number" id="inputPS" placeholder="Ex : 33"
+        min="1" max="250" inputmode="numeric" autocomplete="off" />
+    </div>
+
+    <!-- Étape 3b : Nom (TS uniquement) -->
+    <div class="input-group" id="groupNom" style="display:none">
+      <label>Votre nom</label>
+      <input type="text" id="inputNom" placeholder="Ex : Dupont" autocomplete="off"
+        style="font-size:20px;letter-spacing:1px" />
+    </div>
+
+    <!-- Étape 4 : Jour -->
+    <div class="input-group">
+      <label>Jour</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+        <button type="button" class="jour-btn" data-jour="J1" onclick="selectJour('J1')">J1 — Mercredi 07/10/2026</button>
+        <button type="button" class="jour-btn" data-jour="J2" onclick="selectJour('J2')">J2 — Jeudi 08/10/2026</button>
+        <button type="button" class="jour-btn" data-jour="J3" onclick="selectJour('J3')">J3 — Vendredi 09/10/2026</button>
+        <button type="button" class="jour-btn" data-jour="J4" onclick="selectJour('J4')">J4 — Samedi 10/10/2026</button>
+        <button type="button" class="jour-btn" data-jour="J5" onclick="selectJour('J5')">J5 — Dimanche 11/10/2026</button>
+      </div>
+    </div>
+
+    <button class="btn-login" id="btnAcceder" onclick="acceder()">ACCÉDER À MA FICHE</button>
+    <div class="error-msg" id="errMsg"></div>
+  </div>
+
+  <div class="login-jour-badge">
+    Jour sélectionné : <strong id="loginJourLabel">—</strong>
+  </div>
+</div>
+
+<!-- ======= ÉCRAN CHOIX (résultats Par Nom) ======= -->
+<div id="screenChoix" style="display:none;flex-direction:column;align-items:center;
+  justify-content:flex-start;padding:24px 20px;min-height:100vh;
+  background:radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.15) 0%, transparent 70%),var(--dark)">
+  <div class="login-logo">CCFF · RSA</div>
+  <div class="login-title" style="margin-bottom:8px">ROC D'AZUR <span>2026</span></div>
+  <div style="font-size:14px;color:var(--texte2);margin-bottom:20px;text-align:center"
+    id="choixLabel">Choisissez votre affectation :</div>
+  <div id="choixCards" style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:10px"></div>
+  <button onclick="retourChoix()" style="margin-top:20px;background:transparent;
+    border:1px solid var(--border);color:var(--texte2);border-radius:8px;
+    padding:10px 20px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+    font-size:14px;font-weight:700">← Retour</button>
+</div>
+
+<!-- ======= ÉCRAN FICHE ======= -->
+<div id="screenFiche">
+  <div class="fiche-header">
+    <div class="fiche-header-top">
+      <div class="fiche-event">🚵 ROC D'AZUR 2026</div>
+      <button class="btn-retour" onclick="retour()">← Retour</button>
+    </div>
+    <div class="fiche-ps-title" id="fichePSTitre">PS —</div>
+    <div class="fiche-jour-bar">
+      <span class="jour-chip" id="ficheJourChip">J1</span>
+      <span class="date-chip" id="ficheDateChip">—</span>
+    </div>
+  </div>
+  <div class="fiche-body" id="ficheBody"></div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
+
+const JOURS = [
+  { id:'J1', label:'J1', date:'MERCREDI 07/10/2026' },
+  { id:'J2', label:'J2', date:'JEUDI 08/10/2026' },
+  { id:'J3', label:'J3', date:'VENDREDI 09/10/2026' },
+  { id:'J4', label:'J4', date:'SAMEDI 10/10/2026' },
+  { id:'J5', label:'J5', date:'DIMANCHE 11/10/2026' },
 ];
 
-function getGaillardeSheet() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  let ws = ss.getSheetByName('SAISIE_GAILLARDE');
-  if (!ws) {
-    ws = ss.insertSheet('SAISIE_GAILLARDE');
-    ws.getRange(1, 1, 1, GAILLARDE_HEADERS.length).setValues([GAILLARDE_HEADERS]);
-    ws.getRange(1, 1, 1, GAILLARDE_HEADERS.length)
-      .setBackground('#1A3A5C').setFontColor('#FFFFFF').setFontWeight('bold');
-    ws.setFrozenRows(1);
-  }
-  return ws;
+// Courses (alimentées dynamiquement depuis la réponse Apps Script)
+const COURSES = {};
+
+// ── JSONP ─────────────────────────────────────────────────────────────────────
+function callAS(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const timer  = setTimeout(() => {
+      delete window[cbName];
+      reject(new Error('Timeout — connexion trop lente'));
+    }, 45000);
+    window[cbName] = data => {
+      clearTimeout(timer);
+      delete window[cbName];
+      resolve(data);
+    };
+    const s = document.createElement('script');
+    s.src = APPS_SCRIPT_URL + '?' + new URLSearchParams({ ...params, callback: cbName });
+    s.onerror = () => { clearTimeout(timer); delete window[cbName]; reject(new Error('Erreur réseau')); };
+    document.head.appendChild(s);
+    setTimeout(() => { try { s.remove(); } catch(e){} }, 50000);
+  });
 }
 
-function getSaisieGaillarde(jour, callback) {
-  if (!jour) return jsonErr('Paramètre jour manquant', callback);
+// ── État ──────────────────────────────────────────────────────────────────────
+let JOUR_COURANT = 'J1';
+let SOURCE       = 'ts'; // 'ts' | 'lg'
+let MODE         = 'ps'; // 'ps' | 'nom' (TS uniquement)
+
+// ── UI Login ──────────────────────────────────────────────────────────────────
+function setSource(src) {
+  SOURCE = src;
+  document.getElementById('btnTS').className = 'source-btn' + (src === 'ts' ? ' active-ts' : '');
+  document.getElementById('btnLG').className = 'source-btn' + (src === 'lg' ? ' active-lg' : '');
+  // Toggle PS/NOM visible uniquement pour TS
+  document.getElementById('modeRechercheGroup').style.display = src === 'ts' ? 'block' : 'none';
+  if (src === 'lg') setMode('ps'); // LG → forcer PS
+}
+
+function setMode(mode) {
+  MODE = mode;
+  document.getElementById('btnModePS').className  = 'source-btn' + (mode === 'ps'  ? ' active-ts' : '');
+  document.getElementById('btnModeNom').className = 'source-btn' + (mode === 'nom' ? ' active-ts' : '');
+  document.getElementById('groupPS').style.display  = mode === 'ps'  ? 'block' : 'none';
+  document.getElementById('groupNom').style.display = mode === 'nom' ? 'block' : 'none';
+  document.getElementById('errMsg').textContent = '';
+}
+
+function selectJour(jid) {
+  JOUR_COURANT = jid;
+  document.querySelectorAll('.jour-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.jour === jid)
+  );
+  const info = JOURS.find(j => j.id === jid);
+  document.getElementById('loginJourLabel').textContent = info.label + ' — ' + info.date;
+}
+
+function retour() {
+  document.getElementById('screenFiche').style.display = 'none';
+  document.getElementById('screenChoix').style.display = 'none';
+  document.getElementById('screenLogin').style.display = 'flex';
+  document.getElementById('inputPS').value  = '';
+  document.getElementById('inputNom').value = '';
+  document.getElementById('errMsg').textContent = '';
+}
+
+function retourChoix() {
+  document.getElementById('screenChoix').style.display = 'none';
+  document.getElementById('screenLogin').style.display = 'flex';
+}
+
+// Init : TS + PS + J1 par défaut
+setSource('ts');
+setMode('ps');
+selectJour('J1');
+document.addEventListener('keydown', e => { if (e.key === 'Enter') acceder(); });
+
+// ── Accéder — dispatcher ──────────────────────────────────────────────────────
+async function acceder() {
+  if (SOURCE === 'ts' && MODE === 'nom') {
+    await accederParNom();
+  } else {
+    await accederParPS();
+  }
+}
+
+// ── Par PS ────────────────────────────────────────────────────────────────────
+async function accederParPS() {
+  const errEl = document.getElementById('errMsg');
+  const btn   = document.getElementById('btnAcceder');
+  errEl.textContent = '';
+
+  const psVal = parseInt(document.getElementById('inputPS').value);
+  document.getElementById('inputPS').classList.remove('error');
+  if (!psVal || psVal < 1 || psVal > 250) {
+    document.getElementById('inputPS').classList.add('error');
+    errEl.textContent = 'Numéro de PS invalide (1–250)';
+    return;
+  }
+
+  btn.textContent = '⏳ Chargement…'; btn.disabled = true;
   try {
-    const ws   = getGaillardeSheet();
-    const data = ws.getDataRange().getValues();
-    if (data.length < 2) return jsonOk([], callback);
-    const headers = data[0].map(h => String(h).trim());
-    const rows = [];
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      if (String(row[0]).trim() !== jour) continue;
-      if (row.every(c => c === '' || c === null)) continue;
-      const obj = {};
-      headers.forEach((h, j) => { obj[h] = row[j]; });
-      rows.push(obj);
+    const json = await callAS({ action:'getFichePS', ps:psVal, jour:JOUR_COURANT, source:SOURCE });
+    if (!json.ok) throw new Error(json.error || 'Erreur inconnue');
+    if (!json.data) {
+      errEl.textContent = `PS ${psVal} non trouvé — ${SOURCE === 'lg' ? 'LA_GAILLARDE' : 'Tous Secteurs'} — ${JOUR_COURANT}`;
+      return;
     }
-    return jsonOk(rows, callback);
+    afficherFiche(psVal, JOUR_COURANT, json.data);
   } catch(e) {
-    return jsonErr('Erreur getSaisieGaillarde : ' + e.message, callback);
+    errEl.textContent = 'Erreur : ' + e.message;
+  } finally {
+    btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
   }
 }
 
-function saveSaisieGaillarde(payload, callback) {
-  const { jour, rows } = payload;
-  if (!jour || !rows) return jsonErr('Données manquantes', callback);
-  try {
-    const ws   = getGaillardeSheet();
-    const data = ws.getDataRange().getValues();
-    const headers = data[0].map(h => String(h).trim());
+// ── Par Nom (TS uniquement) ───────────────────────────────────────────────────
+async function accederParNom() {
+  const errEl = document.getElementById('errMsg');
+  const btn   = document.getElementById('btnAcceder');
+  errEl.textContent = '';
 
-    // Supprimer les lignes existantes pour ce jour
-    for (let i = data.length - 1; i >= 1; i--) {
-      if (String(data[i][0]).trim() === jour) ws.deleteRow(i + 1);
+  const nom = document.getElementById('inputNom').value.trim();
+  if (!nom || nom.length < 2) {
+    errEl.textContent = 'Saisissez au moins 2 caractères';
+    return;
+  }
+
+  btn.textContent = '⏳ Recherche…'; btn.disabled = true;
+  try {
+    const json = await callAS({ action:'getFicheParNom', nom, jour:JOUR_COURANT });
+    if (!json.ok) throw new Error(json.error || 'Erreur inconnue');
+
+    const results = (json.data && json.data.results) || [];
+    if (!results.length) {
+      errEl.textContent = `"${nom}" non trouvé en ${JOUR_COURANT} — Tous Secteurs`;
+      return;
     }
 
-    // Réécrire toutes les lignes du jour
-    // REFERENT / ACC_x : normaliser en NOM seul pour cohérence avec SAISIE
-    // NUM_PS : la valeur du front est "33 - Impasse des Celtes" (libellé complet du select)
-    //          → on extrait le numéro seul pour NUM_PS et le libellé complet pour LIEU_DIT
-    //          → cohérence avec SAISIE où NUM_PS="33" et LIEU_DIT_PS="33 - Impasse des Celtes"
-    const BENV_COLS_LG = ['REFERENT','ACC_1','ACC_2','ACC_3'];
-    const now = new Date();
-    rows.forEach(r => {
-      // Extraire numéro PS et lieu-dit depuis la valeur brute du select
-      const numPsRaw  = String(r['NUM_PS'] || '').trim();
-      const numPsSeul = (numPsRaw.match(/^\d+/) || [''])[0]; // "33" depuis "33 - Impasse des Celtes"
-      const lieuDit   = numPsRaw.replace(/^\d+\s*-?\s*/, '').trim(); // "Impasse des Celtes"
-
-      const line = GAILLARDE_HEADERS.map(h => {
-        if (h === 'JOUR')      return jour;
-        if (h === 'TIMESTAMP') return now;
-        if (h === 'NUM_PS')    return numPsSeul;   // "33"
-        if (h === 'LIEU_DIT')  return lieuDit;     // "Impasse des Celtes"
-        if (BENV_COLS_LG.includes(h)) return nomSeul(r[h]);
-        return r[h] !== undefined ? r[h] : '';
-      });
-      ws.appendRow(line);
-    });
-
-    return jsonOk({ saved: rows.length }, callback);
+    if (results.length === 1) {
+      await chargerFicheDepuisResult(results[0]);
+    } else {
+      afficherChoix(results);
+    }
   } catch(e) {
-    return jsonErr('Erreur saveSaisieGaillarde : ' + e.message, callback);
+    errEl.textContent = 'Erreur : ' + e.message;
+  } finally {
+    btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
   }
 }
 
-// ============================================================
-// GET — Fiche par NOM (cherche dans SAISIE + SAISIE_GAILLARDE)
-// ============================================================
-function getFicheParNom(nom, jour, callback) {
-  if (!nom || !jour) return jsonErr('Paramètres nom et jour requis', callback);
-
-  const nomSearch = String(nom).trim().toLowerCase();
-  const results = []; // { nom, prenom, ps, secteur, source }
-
-  // ── Chercher dans SAISIE (Tous Secteurs) ──────────────────
+// Charge la fiche depuis un résultat getFicheParNom
+async function chargerFicheDepuisResult(r) {
+  const psNum = parseInt(String(r.ps).match(/\d+/)?.[0] || '0');
+  if (!psNum) return;
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenChoix').style.display = 'none';
   try {
-    const rows = sheetToObjects(TAB.SAISIE, 2).filter(r => r['JOUR'] === jour);
-    rows.forEach(r => {
-      ['BENEVOLE_1','BENEVOLE_2','BENEVOLE_3','BENEVOLE_4','BENEVOLE_5'].forEach(col => {
-        const val = String(r[col] || '').trim();
-        if (!val) return;
-        // val = "Bénévole_003 Corinne" ou "Dupont Marie"
-        const valLow = val.toLowerCase();
-        if (valLow.includes(nomSearch)) {
-          // Extraire nom et prénom
-          const parts  = val.split(' ');
-          const nomB   = parts[0] || val;
-          const prenom = parts.slice(1).join(' ') || '';
-          // Éviter doublons (même bénévole sur même PS)
-          const key = val + '|' + r['LIEU_DIT_PS'];
-          if (!results.find(x => x.key === key)) {
-            results.push({
-              key,
-              nomComplet: val,
-              nom:    nomB,
-              prenom: prenom,
-              ps:     r['NUM_PS'],
-              lieudit: r['LIEU_DIT_PS'],
-              secteur: r['SECTEUR'],
-              source: 'SAISIE',
-            });
-          }
-        }
-      });
-    });
-  } catch(e) { Logger.log('Erreur SAISIE: ' + e.message); }
-
-  // ── Chercher dans SAISIE_GAILLARDE ────────────────────────
-  try {
-    const ws = getGaillardeSheet();
-    const data = ws.getDataRange().getValues();
-    if (data.length >= 2) {
-      const headers = data[0].map(h => String(h).trim());
-      for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (String(row[0]).trim() !== jour) continue;
-        const obj = {};
-        headers.forEach((h, j) => { obj[h] = row[j]; });
-        ['REFERENT','ACC_1','ACC_2','ACC_3'].forEach(col => {
-          const val = String(obj[col] || '').trim();
-          if (!val) return;
-          const valLow = val.toLowerCase();
-          if (valLow.includes(nomSearch)) {
-            const parts  = val.split(' ');
-            const nomB   = parts[0] || val;
-            const prenom = parts.slice(1).join(' ') || '';
-            const key    = val + '|' + obj['NUM_PS'];
-            if (!results.find(x => x.key === key)) {
-              results.push({
-                key,
-                nomComplet: val,
-                nom:    nomB,
-                prenom: prenom,
-                ps:     obj['NUM_PS'],
-                lieudit: obj['LIEU_DIT'],
-                secteur: 'LA_GAILLARDE',
-                source: 'GAILLARDE',
-              });
-            }
-          }
-        });
-      }
+    const json = await callAS({ action:'getFichePS', ps:psNum, jour:JOUR_COURANT, source:'ts' });
+    if (json.ok && json.data) {
+      afficherFiche(psNum, JOUR_COURANT, json.data);
+    } else {
+      document.getElementById('screenLogin').style.display = 'flex';
+      document.getElementById('errMsg').textContent = `PS ${psNum} introuvable`;
     }
-  } catch(e) { Logger.log('Erreur GAILLARDE: ' + e.message); }
-
-  return jsonOk({ results }, callback);
+  } catch(e) {
+    document.getElementById('screenLogin').style.display = 'flex';
+    document.getElementById('errMsg').textContent = 'Erreur : ' + e.message;
+  }
 }
+
+// Écran de choix (plusieurs résultats Par Nom)
+function afficherChoix(results) {
+  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
+  document.getElementById('choixLabel').textContent =
+    `${results.length} affectation(s) trouvée(s) — ${jourInfo.label} :`;
+  window._choixResults = results;
+  document.getElementById('choixCards').innerHTML = results.map((r, i) => `
+    <div onclick="chargerFicheDepuisResult(window._choixResults[${i}])"
+      style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);
+        border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s"
+      onmouseover="this.style.borderColor='#E74C3C'"
+      onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--texte)">
+        PS ${r.ps} — ${r.lieudit || ''}
+      </div>
+      <div style="font-size:12px;color:var(--texte2);margin-top:4px">
+        ${r.nomComplet || r.nom || ''} · ${r.secteur || ''}
+      </div>
+    </div>`).join('');
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenChoix').style.display = 'flex';
+}
+
+// ── Affichage fiche ───────────────────────────────────────────────────────────
+function afficherFiche(psNum, jourId, d) {
+  const jour  = JOURS.find(j => j.id === jourId);
+  const isLG  = (d.secteur === 'LA_GAILLARDE');
+  const benvs = Array.isArray(d.benevoles) ? d.benevoles : [];
+
+  // Header
+  document.getElementById('ficheJourChip').textContent  = jour.label;
+  document.getElementById('ficheDateChip').textContent  = jour.date;
+  document.getElementById('fichePSTitre').innerHTML =
+    `PS <span style="color:var(--rouge-vif)">${psNum}</span>` +
+    ` — ${(d.ps || '').replace(/^\d+\s*[-–]\s*/, '')}` +
+    `<span class="secteur-badge ${isLG ? 'lg' : 'ts'}">${isLG ? 'LA_GAILLARDE' : d.secteur}</span>`;
+
+  // Courses depuis la réponse
+  if (d.courses && d.courses.length) {
+    d.courses.forEach(c => { COURSES[c.nom] = { jours: c.jours, ps: c.ps, couleur: c.couleur }; });
+  }
+
+  const body = document.getElementById('ficheBody');
+  body.innerHTML = '';
+
+  // ── Card 1 : Identification ──────────────────────────────────────────────
+  const tel = d.telReferant || '—';
+  let html1 = `<div class="fiche-card">
+    <div class="fiche-card-header"><span class="card-icon">📍</span><span class="card-title">Mon Point Signaleur</span></div>
+    <div class="fiche-card-body">`;
+
+  if (isLG) {
+    html1 += row('Secteur', `<span class="info-val secteur">LA_GAILLARDE</span>`, true);
+    html1 += row('MeP par', d.referant || '—');
+    if (tel !== '—') html1 += row('Tél. MeP', `<span class="info-val tel">📞 ${tel}</span>`, true);
+    html1 += `<div style="border-top:1px solid var(--border);margin:8px 0"></div>`;
+    html1 += row('Signaleur réf.', benvs[0] || '—');
+    if (d.telB1 && d.telB1 !== '—') html1 += row('Tél. signaleur', `<span class="info-val tel">📞 ${d.telB1}</span>`, true);
+    if (benvs.length > 1) html1 += row('Accompagnants', benvs.slice(1).join('<br>'));
+  } else {
+    html1 += row('Secteur', `<span class="info-val secteur">${d.secteur}</span>`, true);
+    html1 += row('Référent', d.referant || '—');
+    if (tel !== '—') html1 += row('Tél. référent', `<span class="info-val tel">📞 ${tel}</span>`, true);
+    if (benvs.length > 1) html1 += row('Coéquipier(s)', benvs.slice(1).join('<br>'));
+  }
+  html1 += `</div></div>`;
+  body.insertAdjacentHTML('beforeend', html1);
+
+  // ── Card 2 : Heure MeP ───────────────────────────────────────────────────
+  body.insertAdjacentHTML('beforeend', `
+    <div class="fiche-card">
+      <div class="fiche-card-header"><span class="card-icon">⏰</span><span class="card-title">Heure de mise en place</span></div>
+      <div class="fiche-card-body">
+        <div class="hmep-display">
+          <div class="hmep-heure">${d.hmep || '—'}</div>
+          <div class="hmep-label">HEURE D'ARRIVÉE AU POINT</div>
+        </div>
+        ${d.hmepSect ? `<div class="info-row" style="margin-top:8px">${rowInner('H MeP secteur','<span class="info-val highlight">'+d.hmepSect+'</span>')}</div>` : ''}
+      </div>
+    </div>`);
+
+  // ── Card 3 : Véhicule ────────────────────────────────────────────────────
+  const veh = [d.vehA, d.vehB].filter(Boolean).join(' + ');
+  body.insertAdjacentHTML('beforeend', `
+    <div class="fiche-card">
+      <div class="fiche-card-header"><span class="card-icon">🚗</span><span class="card-title">Transport</span></div>
+      <div class="fiche-card-body">
+        ${veh
+          ? `<div class="veh-badge"><span class="veh-icon">🚙</span><div><div class="veh-nom">${veh}</div></div></div>`
+          : `<div style="color:var(--texte2);font-size:14px;padding:4px 0">Aucun véhicule — déposé par un autre</div>`}
+      </div>
+    </div>`);
+
+  // ── Card 4 : Radios ──────────────────────────────────────────────────────
+  body.insertAdjacentHTML('beforeend', `
+    <div class="fiche-card">
+      <div class="fiche-card-header"><span class="card-icon">📻</span><span class="card-title">Dotation Radios</span></div>
+      <div class="fiche-card-body">
+        <div class="radios-grid">
+          ${[['COM','com',d.com],['COURSE','crs',d.crs],['COM V','cmv',d.cmv]].map(([lbl,cls,nb]) => `
+            <div class="radio-card ${(nb||0)>0?cls:'off'}">
+              <div class="radio-nb">${nb||0}</div>
+              <div class="radio-type">${lbl}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`);
+
+  // ── Card 5 : Courses & Distances ─────────────────────────────────────────
+  const coursesCeJour = Object.entries(COURSES).filter(([,c]) =>
+    Array.isArray(c.jours) && c.jours.includes(jourId) &&
+    Array.isArray(c.ps) && c.ps.includes(psNum)
+  );
+  const kmR = d.kmRavit || ''; const kmA = d.kmAtelier || '';
+  body.insertAdjacentHTML('beforeend', `
+    <div class="fiche-card">
+      <div class="fiche-card-header"><span class="card-icon">🏁</span><span class="card-title">Courses & Distances</span></div>
+      <div class="fiche-card-body">
+        ${coursesCeJour.length
+          ? coursesCeJour.map(([nom,c]) => `<div class="course-item">
+              <div class="course-dot" style="background:${c.couleur}"></div>
+              <span class="course-nom">${nom}</span>
+              <span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;background:${c.couleur};color:#fff;border-radius:3px;padding:1px 7px">CE JOUR</span>
+            </div>`).join('')
+          : `<div style="color:var(--texte2);font-size:13px;padding:4px 0">Aucune course ce jour à ce PS</div>`}
+        ${kmR ? `<div class="info-row" style="margin-top:8px">${rowInner('Km ravitaillement','<span class="info-val highlight">'+kmR+' km</span>')}</div>` : ''}
+        ${kmA ? `<div class="info-row">${rowInner('Km atelier','<span class="info-val highlight">'+kmA+' km</span>')}</div>` : ''}
+        ${!coursesCeJour.length && !kmR && !kmA ? `<div style="color:var(--texte2);font-size:12px;margin-top:6px;font-style:italic">Distances Orga non encore disponibles</div>` : ''}
+      </div>
+    </div>`);
+
+  // ── Card 6 : Coéquipiers (TS uniquement) ─────────────────────────────────
+  if (!isLG && d.coequipiers && d.coequipiers.length) {
+    const equip = d.coequipiers.map(eq =>
+      (eq.benevoles||[]).map(b => {
+        const ini = b.replace('Bénévole_','B').slice(0,4);
+        const psL = (eq.ps||'').match(/^(\S+)/)?.[1] || eq.ps;
+        return `<div class="equipe-item">
+          <div class="equipe-avatar">${ini}</div>
+          <span class="equipe-nom">${b}</span>
+          <span class="equipe-ps">PS ${psL}</span>
+        </div>`;
+      }).join('')
+    ).join('');
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fiche-card">
+        <div class="fiche-card-header"><span class="card-icon">👥</span><span class="card-title">Autres bénévoles — ${d.secteur}</span></div>
+        <div class="fiche-card-body"><div class="equipe-list">${equip}</div></div>
+      </div>`);
+  }
+
+  // ── Card 7 : Commentaires ────────────────────────────────────────────────
+  const comms = (d.commentaires||[]).filter(Boolean);
+  if (comms.length) {
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fiche-card">
+        <div class="fiche-card-header"><span class="card-icon">📝</span><span class="card-title">Commentaires</span></div>
+        <div class="fiche-card-body">
+          ${comms.map(c=>`<div class="obs-text">• ${c}</div>`).join('')}
+        </div>
+      </div>`);
+  }
+
+  // ── Card 8 : Observation ─────────────────────────────────────────────────
+  const obs = (d.obs||'').trim();
+  if (obs && !obs.toLowerCase().includes('déposé')) {
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fiche-card">
+        <div class="fiche-card-header"><span class="card-icon">⚠️</span><span class="card-title">Note importante</span></div>
+        <div class="fiche-card-body"><div class="obs-text">⚠ ${obs}</div></div>
+      </div>`);
+  }
+
+  // ── Urgence ───────────────────────────────────────────────────────────────
+  body.insertAdjacentHTML('beforeend', `
+    <div class="urgence-banner">
+      <div class="urgence-title">🚨 En cas d'accident</div>
+      <div class="urgence-text">
+        Contacte le <strong>PC ROC sur RADIO COURSE</strong>
+        ${tel !== '—' ? `<br>ou appelle <strong>${tel}</strong>` : ''}
+      </div>
+    </div>`);
+
+  // Afficher
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenFiche').style.display = 'flex';
+  window.scrollTo(0, 0);
+}
+
+// ── Helpers HTML ──────────────────────────────────────────────────────────────
+function rowInner(label, valHtml) {
+  return `<span class="info-label">${label}</span>${valHtml}`;
+}
+function row(label, val, rawHtml) {
+  const valPart = rawHtml ? val : `<span class="info-val">${val}</span>`;
+  return `<div class="info-row"><span class="info-label">${label}</span>${valPart}</div>`;
+}
+</script>
+</body>
+</html>
