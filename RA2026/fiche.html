@@ -383,8 +383,39 @@
     font-family: 'Barlow Condensed', sans-serif; font-size: 16px;
     font-weight: 600; letter-spacing: 1px; transition: all 0.15s;
   }
-  .jour-btn:hover { border-color: var(--rouge-vif); color: var(--texte); background: rgba(192,57,43,0.1); }
-  .jour-btn.active { background: var(--rouge); border-color: var(--rouge); color: #fff; }
+  /* Mode tabs Par PS / Par Nom */
+  .mode-tabs { display:flex; gap:0; margin-bottom:16px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); }
+  .mode-tab {
+    flex:1; padding:10px; text-align:center; cursor:pointer;
+    font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; letter-spacing:1px;
+    background:rgba(255,255,255,0.05); color:var(--texte2); border:none; transition:all 0.15s;
+  }
+  .mode-tab.active { background:var(--rouge); color:#fff; }
+  .mode-panel { display:none; }
+  .mode-panel.active { display:block; }
+
+  /* Écran de choix (doublon PS ou homonymes) */
+  #screenChoix {
+    display:none; flex-direction:column; align-items:center; justify-content:flex-start;
+    padding:24px 20px; min-height:100vh; box-sizing:border-box; width:100%;
+    background:radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.15) 0%, transparent 70%), var(--dark);
+  }
+  .choix-card {
+    width:100%; max-width:480px; background:rgba(255,255,255,0.05);
+    border:1.5px solid rgba(255,255,255,0.1); border-radius:10px;
+    padding:14px 16px; cursor:pointer; transition:all 0.15s; margin-bottom:10px;
+  }
+  .choix-card:hover { border-color:var(--rouge-vif); background:rgba(192,57,43,0.1); }
+  .choix-card-titre {
+    font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:900; color:var(--texte);
+  }
+  .choix-card-sub { font-size:12px; color:var(--texte2); margin-top:4px; }
+  .choix-card-secteur {
+    display:inline-block; margin-top:6px; font-family:'Barlow Condensed',sans-serif;
+    font-size:12px; font-weight:700; letter-spacing:1px; padding:2px 8px;
+    border-radius:4px; background:rgba(88,166,255,0.15); color:var(--bleu-clair);
+  }
+  .choix-card-secteur.lg { background:rgba(178,159,11,0.15); color:#E3B341; }
 </style>
 </head>
 <body>
@@ -396,13 +427,35 @@
   <div class="login-subtitle">Ma fiche point signaleur</div>
 
   <div class="login-card">
-    <div class="input-group">
-      <label>Numéro de point signaleur</label>
-      <input type="number" id="inputPS" placeholder="Ex : 33" min="1" max="250"
-        inputmode="numeric" autocomplete="off" />
+
+    <!-- Onglets mode -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="switchMode('ps')">🗺 Par PS</button>
+      <button class="mode-tab" onclick="switchMode('nom')">👤 Par Nom</button>
     </div>
 
-    <!-- Sélecteur de jour — visible uniquement hors période événement -->
+    <!-- MODE PAR PS -->
+    <div class="mode-panel active" id="modePS">
+      <div class="input-group">
+        <label>Numéro de point signaleur</label>
+        <input type="number" id="inputPS" placeholder="Ex : 33" min="1" max="250"
+          inputmode="numeric" autocomplete="off" />
+      </div>
+    </div>
+
+    <!-- MODE PAR NOM -->
+    <div class="mode-panel" id="modeNom">
+      <div class="input-group">
+        <label>Votre nom</label>
+        <input type="text" id="inputNom" placeholder="Ex : Dupont" autocomplete="off"
+          style="width:100%;padding:14px 16px;border-radius:10px;
+            background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);
+            color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:18px;
+            font-weight:600;outline:none;box-sizing:border-box;" />
+      </div>
+    </div>
+
+    <!-- Sélecteur de jour — toujours visible -->
     <div class="input-group" id="jourSelectorGroup" style="display:none">
       <label>Jour</label>
       <div id="jourBtns" style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
@@ -414,13 +467,26 @@
       </div>
     </div>
 
-    <button class="btn-login" onclick="acceder()">ACCÉDER À MA FICHE</button>
+    <button class="btn-login" id="btnAcceder" onclick="acceder()">ACCÉDER À MA FICHE</button>
     <div class="error-msg" id="errMsg"></div>
   </div>
 
   <div class="login-jour-badge">
     Jour en cours : <strong id="loginJourLabel">—</strong>
   </div>
+</div>
+
+<!-- ======= ÉCRAN CHOIX (doublon PS ou homonymes Par Nom) ======= -->
+<div id="screenChoix">
+  <div class="login-logo">CCFF · RSA</div>
+  <div class="login-title" style="margin-bottom:8px">ROC D'AZUR <span>2026</span></div>
+  <div style="font-size:14px;color:var(--texte2);margin-bottom:20px;text-align:center"
+    id="choixLabel">Plusieurs résultats — choisissez :</div>
+  <div id="choixCards" style="width:100%;max-width:480px"></div>
+  <button onclick="retourLogin()" style="margin-top:20px;background:transparent;
+    border:1px solid var(--border);color:var(--texte2);border-radius:8px;
+    padding:10px 20px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+    font-size:14px;font-weight:700">← Retour</button>
 </div>
 
 <!-- ======= ÉCRAN FICHE ======= -->
@@ -556,75 +622,234 @@ function coursesPS(psNum, jourId) {
 }
 
 // ============================================================
-// UI LOGIN — initialisation selon mode auto/select
+// UI LOGIN
 // ============================================================
-// ============================================================
-// UI LOGIN — sélecteur de jour toujours visible
-// ============================================================
-function selectJour(jid) {
-  JOUR_COURANT = jid;
-  document.querySelectorAll('.jour-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.jour === jid);
-  });
-  // Mettre à jour le badge
-  const jourInfo = JOURS.find(j => j.id === jid);
-  document.getElementById('loginJourLabel').textContent =
-    `${jourInfo.label} — ${jourInfo.date}`;
+let currentMode = 'ps'; // 'ps' ou 'nom'
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach((t, i) =>
+    t.classList.toggle('active', (i === 0 && mode === 'ps') || (i === 1 && mode === 'nom'))
+  );
+  document.getElementById('modePS').classList.toggle('active', mode === 'ps');
+  document.getElementById('modeNom').classList.toggle('active', mode === 'nom');
+  document.getElementById('errMsg').textContent = '';
 }
 
-(function initLogin() {
-  // Sélecteur toujours visible
-  document.getElementById('jourSelectorGroup').style.display = 'block';
-  // Badge initial J1
-  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
-  document.getElementById('loginJourLabel').textContent =
-    `${jourInfo.label} — ${jourInfo.date}`;
-})();
+function retourLogin() {
+  document.getElementById('screenChoix').style.display  = 'none';
+  document.getElementById('screenLogin').style.display  = 'flex';
+}
 
-// Enter key support
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') acceder();
-});
+function selectJour(jid) {
+  JOUR_COURANT = jid;
+  document.querySelectorAll('.jour-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.jour === jid)
+  );
+  const jourInfo = JOURS.find(j => j.id === jid);
+  document.getElementById('loginJourLabel').textContent = jourInfo.label + ' — ' + jourInfo.date;
+}
 
-async function acceder() {
-  const psVal = parseInt(document.getElementById('inputPS').value);
+// ── Écran de choix (doublon PS ou homonymes Par Nom) ──────────────────────────
+// items = [{ titre, sub, secteur, isLG, onSelect:fn }]
+function afficherChoix(label, items) {
+  document.getElementById('choixLabel').textContent = label;
+  document.getElementById('choixCards').innerHTML = items.map((item, i) => {
+    const lgClass = item.isLG ? ' lg' : '';
+    return `<div class="choix-card" onclick="window._choixItems[${i}].onSelect()">
+      <div class="choix-card-titre">${item.titre}</div>
+      ${item.sub ? `<div class="choix-card-sub">${item.sub}</div>` : ''}
+      <span class="choix-card-secteur${lgClass}">${item.secteur}</span>
+    </div>`;
+  }).join('');
+  window._choixItems = items;
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('screenChoix').style.display = 'flex';
+}
+
+// ── Mode Par PS ───────────────────────────────────────────────────────────────
+async function accederParPS(psVal) {
+  const btn   = document.getElementById('btnAcceder');
   const errEl = document.getElementById('errMsg');
-
-  // JOUR_COURANT déjà mis à jour par selectJour()
-
+  btn.textContent = '⏳ Chargement…'; btn.disabled = true;
   errEl.textContent = '';
-  document.getElementById('inputPS').classList.remove('error');
+  try {
+    const json = await callAS({ action: 'getFichePS', ps: psVal, jour: JOUR_COURANT });
+    if (!json.ok) throw new Error(json.error);
 
+    // getFichePS peut retourner :
+    //   null                  → PS non trouvé
+    //   { ...ficheData }      → trouvé dans un seul onglet (comportement standard)
+    //   [ ficheTS, ficheLG ]  → PS trouvé dans les deux onglets → choix
+    const data = json.data;
+
+    if (!data) {
+      errEl.textContent = `PS ${psVal} non trouvé pour ${JOUR_COURANT} — contacte ton référent`;
+      return;
+    }
+
+    if (Array.isArray(data)) {
+      // Doublon TS + LG → proposer un choix
+      afficherChoix(
+        `PS ${psVal} trouvé dans 2 secteurs — choisissez :`,
+        data.map(fiche => ({
+          titre:    `PS ${psVal} — ${fiche.ps ? fiche.ps.replace(/^\d+\s*-?\s*/, '') : ''}`,
+          sub:      fiche.referant ? `Référent : ${fiche.referant}` : '',
+          secteur:  fiche.secteur,
+          isLG:     fiche.secteur === 'LA_GAILLARDE',
+          onSelect: () => {
+            document.getElementById('screenChoix').style.display = 'none';
+            afficherFicheFromSheets(psVal, JOUR_COURANT, fiche);
+          }
+        }))
+      );
+    } else {
+      afficherFicheFromSheets(psVal, JOUR_COURANT, data);
+    }
+  } catch(e) {
+    console.error('Fiche fetch error:', e);
+    errEl.textContent = `Erreur chargement PS ${psVal} — ${e.message}`;
+  } finally {
+    btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
+  }
+}
+
+// ── Mode Par Nom ──────────────────────────────────────────────────────────────
+async function accederParNom(nom) {
+  const btn   = document.getElementById('btnAcceder');
+  const errEl = document.getElementById('errMsg');
+  btn.textContent = '⏳ Recherche…'; btn.disabled = true;
+  errEl.textContent = '';
+  try {
+    const json = await callAS({ action: 'getFicheParNom', nom, jour: JOUR_COURANT });
+    if (!json.ok) throw new Error(json.error);
+    const results = json.data.results || [];
+
+    if (!results.length) {
+      errEl.textContent = `Aucune affectation trouvée pour "${nom}" en ${JOUR_COURANT}`;
+      return;
+    }
+
+    if (results.length === 1) {
+      // Un seul résultat → aller directement à la fiche
+      _chargerFicheDepuisResult(results[0]);
+      return;
+    }
+
+    // Plusieurs résultats → regrouper par nomComplet pour détecter les homonymes
+    const parBenevole = {};
+    results.forEach(r => {
+      const key = r.nomComplet || r.nom;
+      if (!parBenevole[key]) parBenevole[key] = [];
+      parBenevole[key].push(r);
+    });
+    const benevoles = Object.keys(parBenevole);
+
+    if (benevoles.length > 1) {
+      // Plusieurs bénévoles différents avec le même NOM → choisir par NOM+PRENOM
+      afficherChoix(
+        `Plusieurs bénévoles "${nom}" trouvés — choisissez :`,
+        benevoles.map(nomComplet => {
+          const ps = parBenevole[nomComplet];
+          const prenom = ps[0].prenom || '';
+          return {
+            titre:    nomComplet,
+            sub:      `${ps.length} PS affecté(s)`,
+            secteur:  ps.map(r => r.secteur).filter((v,i,a) => a.indexOf(v)===i).join(', '),
+            isLG:     ps.some(r => r.secteur === 'LA_GAILLARDE'),
+            onSelect: () => {
+              document.getElementById('screenChoix').style.display = 'none';
+              if (ps.length === 1) {
+                _chargerFicheDepuisResult(ps[0]);
+              } else {
+                // Même bénévole, plusieurs PS → afficher la liste
+                afficherChoix(
+                  `Affectations de ${nomComplet} en ${JOUR_COURANT} :`,
+                  ps.map(r => ({
+                    titre:    `PS ${r.ps} — ${r.lieudit || ''}`,
+                    sub:      '',
+                    secteur:  r.secteur,
+                    isLG:     r.secteur === 'LA_GAILLARDE',
+                    onSelect: () => {
+                      document.getElementById('screenChoix').style.display = 'none';
+                      _chargerFicheDepuisResult(r);
+                    }
+                  }))
+                );
+              }
+            }
+          };
+        })
+      );
+    } else {
+      // Un seul bénévole, plusieurs PS → afficher la liste de ses PS
+      const ps = parBenevole[benevoles[0]];
+      afficherChoix(
+        `Affectations de ${benevoles[0]} — ${JOUR_COURANT} :`,
+        ps.map(r => ({
+          titre:    `PS ${r.ps} — ${r.lieudit || ''}`,
+          sub:      '',
+          secteur:  r.secteur,
+          isLG:     r.secteur === 'LA_GAILLARDE',
+          onSelect: () => {
+            document.getElementById('screenChoix').style.display = 'none';
+            _chargerFicheDepuisResult(r);
+          }
+        }))
+      );
+    }
+  } catch(e) {
+    errEl.textContent = 'Erreur recherche : ' + e.message;
+  } finally {
+    btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
+  }
+}
+
+// Charge la fiche depuis un résultat getFicheParNom
+function _chargerFicheDepuisResult(r) {
+  const psNum = parseInt(String(r.ps).match(/\d+/)?.[0] || '0');
+  if (!psNum) return;
+  document.getElementById('screenLogin').style.display  = 'none';
+  document.getElementById('screenChoix').style.display  = 'none';
+  callAS({ action: 'getFichePS', ps: psNum, jour: JOUR_COURANT })
+    .then(json => {
+      if (json.ok && json.data && !Array.isArray(json.data)) {
+        afficherFicheFromSheets(psNum, JOUR_COURANT, json.data);
+      } else if (json.ok && Array.isArray(json.data)) {
+        // Doublon : choisir la fiche du bon secteur
+        const fiche = json.data.find(f => f.secteur === r.secteur) || json.data[0];
+        afficherFicheFromSheets(psNum, JOUR_COURANT, fiche);
+      } else {
+        afficherFiche(psNum, JOUR_COURANT);
+      }
+    })
+    .catch(() => afficherFiche(psNum, JOUR_COURANT));
+}
+
+// ── Entrée principale ─────────────────────────────────────────────────────────
+async function acceder() {
+  const errEl = document.getElementById('errMsg');
+  errEl.textContent = '';
+
+  if (currentMode === 'nom') {
+    const nom = document.getElementById('inputNom').value.trim();
+    if (!nom || nom.length < 2) {
+      errEl.textContent = 'Saisissez au moins 2 caractères';
+      return;
+    }
+    await accederParNom(nom);
+    return;
+  }
+
+  // Mode Par PS
+  const psVal = parseInt(document.getElementById('inputPS').value);
+  document.getElementById('inputPS').classList.remove('error');
   if (!psVal || psVal < 1 || psVal > 250) {
     document.getElementById('inputPS').classList.add('error');
     errEl.textContent = 'Numéro de PS invalide (1–250)';
     return;
   }
-
-  // Mode Sheets : interroge Apps Script via JSONP
-  if (SHEETS_ENABLED) {
-    const btn = document.querySelector('.btn-login');
-    btn.textContent = '⏳ Chargement…'; btn.disabled = true;
-    errEl.textContent = '';
-    try {
-      const json = await callAS({ action: 'getFichePS', ps: psVal, jour: JOUR_COURANT });
-      if (!json.ok) throw new Error(json.error);
-      if (!json.data) {
-        errEl.textContent = `PS ${psVal} non trouvé pour ${JOUR_COURANT} — contacte ton référent`;
-        btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
-        return;
-      }
-      afficherFicheFromSheets(psVal, JOUR_COURANT, json.data);
-    } catch(e) {
-      console.error('Fiche fetch error:', e);
-      errEl.textContent = `Erreur : ${e.message} — vérification hors-ligne`;
-      afficherFiche(psVal, JOUR_COURANT);
-    } finally {
-      btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
-    }
-  } else {
-    afficherFiche(psVal, JOUR_COURANT);
-  }
+  await accederParPS(psVal);
 }
 
 function retour() {
@@ -632,6 +857,17 @@ function retour() {
   document.getElementById('screenLogin').style.display = 'flex';
   document.getElementById('inputPS').value = '';
 }
+
+(function initLogin() {
+  document.getElementById('jourSelectorGroup').style.display = 'block';
+  const jourInfo = JOURS.find(j => j.id === JOUR_COURANT);
+  document.getElementById('loginJourLabel').textContent = jourInfo.label + ' — ' + jourInfo.date;
+  document.querySelectorAll('.jour-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.jour === JOUR_COURANT)
+  );
+})();
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') acceder(); });
 
 // ============================================================
 // RENDU FICHE
