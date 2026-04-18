@@ -383,6 +383,10 @@
     font-family: 'Barlow Condensed', sans-serif; font-size: 16px;
     font-weight: 600; letter-spacing: 1px; transition: all 0.15s;
   }
+  .jour-btn.active {
+    background: rgba(192,57,43,0.15); border-color: var(--rouge-vif);
+    color: var(--texte); font-weight: 700;
+  }
   /* Mode tabs Par PS / Par Nom */
   .mode-tabs { display:flex; gap:0; margin-bottom:16px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); }
   .mode-tab {
@@ -872,7 +876,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter') acceder(); })
 // ============================================================
 // RENDU FICHE
 // ============================================================
-function afficherFiche(psNum, jourId, d) {
+// secteurObjOverride et rowOverride : passés depuis afficherFicheFromSheets
+// pour court-circuiter findRowByPS (SAISIE_DATA local toujours vide en mode Sheets)
+function afficherFiche(psNum, jourId, d, secteurObjOverride, rowOverride) {
   const jour = JOURS.find(j => j.id === jourId);
   document.getElementById('ficheNumPS').textContent = psNum;
   document.getElementById('ficheJourChip').textContent = jour.label;
@@ -881,21 +887,28 @@ function afficherFiche(psNum, jourId, d) {
   const body = document.getElementById('ficheBody');
   body.innerHTML = '';
 
-  const found = findRowByPS(psNum, jourId);
-
-  if (!found) {
-    body.innerHTML = `
-      <div class="notfound">
-        <span>🔍</span>
-        PS <strong>${psNum}</strong> non trouvé pour ${jour.label}.<br>
-        Contacte ton référent.
-      </div>`;
-    document.getElementById('screenLogin').style.display = 'none';
-    document.getElementById('screenFiche').style.display = 'flex';
-    return;
+  // Utiliser les données injectées depuis Sheets si disponibles,
+  // sinon chercher dans SAISIE_DATA local (mode hors-ligne)
+  let s, r;
+  if (secteurObjOverride && rowOverride) {
+    s = secteurObjOverride;
+    r = rowOverride;
+  } else {
+    const found = findRowByPS(psNum, jourId);
+    if (!found) {
+      body.innerHTML = `
+        <div class="notfound">
+          <span>🔍</span>
+          PS <strong>${psNum}</strong> non trouvé pour ${jour.label}.<br>
+          Contacte ton référent.
+        </div>`;
+      document.getElementById('screenLogin').style.display = 'none';
+      document.getElementById('screenFiche').style.display = 'flex';
+      return;
+    }
+    s = found.secteurObj;
+    r = found.row;
   }
-
-  const { secteurObj: s, row: r } = found;
   const isGaillarde = s.secteur === 'LA_GAILLARDE';
 
   // Tel référent secteur
@@ -1218,7 +1231,7 @@ function afficherFicheFromSheets(psNum, jourId, d) {
     });
   }
 
-  afficherFiche(psNum, jourId, d);
+  afficherFiche(psNum, jourId, d, pseudoSecteur, pseudoRow);
 }
 </script>
 </body>
