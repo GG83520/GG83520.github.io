@@ -768,7 +768,9 @@
     body.print-gaillarde .btn-fiche-print,
     body.print-gaillarde #glrdBenvSelect,
     body.print-gaillarde [for="glrdBenvSelect"],
-    body.print-gaillarde .glrd-benv-selector { display: none !important; }
+    body.print-gaillarde .glrd-benv-selector,
+    body.print-gaillarde #glrdStatsBar,
+    body.print-gaillarde #glrdAlertsBar { display: none !important; }
     body.print-gaillarde .glrd-tab-content.active {
       display: block !important; padding: 0;
       /* Annuler overflow-y:auto et flex:1 — sinon le contenu reste scrollable et tronqué */
@@ -1783,8 +1785,20 @@ async function glrdChargerJour() {
     try {
       const json = await callASRetry({ action: 'getSaisieGaillarde', jour: glrdJour });
       if (json.ok && json.data.length) {
+        // Helper : retrouver le libellé complet "33 - Impasse des Celtes"
+        // depuis le numéro seul "33" stocké dans Sheets (après correction saveSaisieGaillarde)
+        // Le select PS utilise le libellé complet comme value → nécessaire pour la sélection
+        const psList = PS_SECTEUR['LA_GAILLARDE'] || [];
+        function numPsToLibelle(numStr) {
+          if (!numStr) return '';
+          const num = String(numStr).trim();
+          const found = psList.find(p => p.startsWith(num + ' ') || p.startsWith(num + '-') || p === num);
+          return found || num; // fallback : numéro seul si non trouvé dans PS_SECTEUR
+        }
+
         glrdState[glrdJour] = json.data.map(r => ({
-          NUM_PS: r.NUM_PS||'', LIEU_DIT: r.LIEU_DIT||'',
+          NUM_PS: numPsToLibelle(r.NUM_PS), // "33" → "33 - Impasse des Celtes"
+          LIEU_DIT: r.LIEU_DIT||'',
           REFERENT: r.REFERENT||'', ACC_1: r.ACC_1||'', ACC_2: r.ACC_2||'', ACC_3: r.ACC_3||'',
           VEH_A: r.VEH_A||'', VEH_B: r.VEH_B||'',
           NB_COM: r.NB_COM||0, NB_CRS: r.NB_CRS||0, NB_CMV: r.NB_CMV||0,
