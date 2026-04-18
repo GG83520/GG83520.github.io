@@ -1197,12 +1197,13 @@ function afficherFicheFromSheets(psNum, jourId, d) {
     commentaires: d.commentaires || [],
     telReferant:  d.telReferant || '',  // tel direct depuis Sheets
   };
+  const benvList = Array.isArray(d.benevoles) ? d.benevoles : [];
   const pseudoRow = {
     ps:   d.ps,
     hmep: d.hmep,
     vehA: d.vehA, vehB: d.vehB,
-    b1: d.benevoles[0]||'', b2: d.benevoles[1]||'', b3: d.benevoles[2]||'',
-    b4: d.benevoles[3]||'', b5: d.benevoles[4]||'',
+    b1: benvList[0]||'', b2: benvList[1]||'', b3: benvList[2]||'',
+    b4: benvList[3]||'', b5: benvList[4]||'',
     com: d.com, crs: d.crs, cmv: d.cmv,
     obs: d.obs,
   };
