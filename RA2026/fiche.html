@@ -126,9 +126,32 @@
   .secteur-badge { display: inline-block; margin-left: 8px; font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; vertical-align: middle; }
   .secteur-badge.ts { background: rgba(192,57,43,0.25); color: var(--rouge-vif); }
   .secteur-badge.lg { background: rgba(183,149,11,0.25); color: var(--or-clair); }
+
+  /* Bannière de chargement */
+  #loadingBanner {
+    display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+    background: rgba(15,52,96,0.97); color: #fff; text-align: center;
+    padding: 12px 16px;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px;
+    border-bottom: 2px solid var(--rouge);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  #loadingBanner .lb-spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    margin-right: 8px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<!-- Bannière de chargement (fixe en haut) -->
+<div id="loadingBanner">
+  <span class="lb-spinner"></span>
+  <span id="loadingMsg">Connexion…</span>
+</div>
 
 <!-- ======= ÉCRAN LOGIN ======= -->
 <div id="screenLogin">
@@ -324,6 +347,15 @@ async function acceder() {
   }
 }
 
+// ── Loader ────────────────────────────────────────────────────────────────────
+function showLoader(msg) {
+  document.getElementById('loadingMsg').textContent = msg || 'Chargement…';
+  document.getElementById('loadingBanner').style.display = 'block';
+}
+function hideLoader() {
+  document.getElementById('loadingBanner').style.display = 'none';
+}
+
 // ── Par PS ────────────────────────────────────────────────────────────────────
 async function accederParPS() {
   const errEl = document.getElementById('errMsg');
@@ -338,7 +370,8 @@ async function accederParPS() {
     return;
   }
 
-  btn.textContent = '⏳ Chargement…'; btn.disabled = true;
+  btn.textContent = '⏳'; btn.disabled = true;
+  showLoader('Recherche PS ' + psVal + ' — ' + (SOURCE === 'lg' ? 'LA_GAILLARDE' : 'Tous Secteurs') + '…');
   try {
     const json = await callAS({ action:'getFichePS', ps:psVal, jour:JOUR_COURANT, source:SOURCE });
     if (!json.ok) throw new Error(json.error || 'Erreur inconnue');
@@ -346,10 +379,14 @@ async function accederParPS() {
       errEl.textContent = `PS ${psVal} non trouvé — ${SOURCE === 'lg' ? 'LA_GAILLARDE' : 'Tous Secteurs'} — ${JOUR_COURANT}`;
       return;
     }
+    showLoader('Affichage de la fiche…');
     afficherFiche(psVal, JOUR_COURANT, json.data);
   } catch(e) {
-    errEl.textContent = 'Erreur : ' + e.message;
+    errEl.textContent = e.message.includes('Timeout')
+      ? 'Réseau trop lent — réessayez dans quelques secondes'
+      : 'Erreur : ' + e.message;
   } finally {
+    hideLoader();
     btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
   }
 }
@@ -366,9 +403,10 @@ async function accederParNom() {
     return;
   }
 
-  btn.textContent = '⏳ Recherche…'; btn.disabled = true;
+  btn.textContent = '⏳'; btn.disabled = true;
+  showLoader('Recherche "' + nom + '" — Tous Secteurs — ' + JOUR_COURANT + '…');
   try {
-    const json = await callAS({ action:'getFicheParNom', nom, jour:JOUR_COURANT });
+    const json = await callAS({ action:'getFicheParNom', nom, jour:JOUR_COURANT, source:'ts' });
     if (!json.ok) throw new Error(json.error || 'Erreur inconnue');
 
     const results = (json.data && json.data.results) || [];
@@ -376,15 +414,17 @@ async function accederParNom() {
       errEl.textContent = `"${nom}" non trouvé en ${JOUR_COURANT} — Tous Secteurs`;
       return;
     }
-
     if (results.length === 1) {
       await chargerFicheDepuisResult(results[0]);
     } else {
       afficherChoix(results);
     }
   } catch(e) {
-    errEl.textContent = 'Erreur : ' + e.message;
+    errEl.textContent = e.message.includes('Timeout')
+      ? 'Réseau trop lent — réessayez dans quelques secondes'
+      : 'Erreur : ' + e.message;
   } finally {
+    hideLoader();
     btn.textContent = 'ACCÉDER À MA FICHE'; btn.disabled = false;
   }
 }
@@ -395,6 +435,7 @@ async function chargerFicheDepuisResult(r) {
   if (!psNum) return;
   document.getElementById('screenLogin').style.display = 'none';
   document.getElementById('screenChoix').style.display = 'none';
+  showLoader('Chargement fiche PS ' + psNum + '…');
   try {
     const json = await callAS({ action:'getFichePS', ps:psNum, jour:JOUR_COURANT, source:'ts' });
     if (json.ok && json.data) {
@@ -405,7 +446,11 @@ async function chargerFicheDepuisResult(r) {
     }
   } catch(e) {
     document.getElementById('screenLogin').style.display = 'flex';
-    document.getElementById('errMsg').textContent = 'Erreur : ' + e.message;
+    document.getElementById('errMsg').textContent = e.message.includes('Timeout')
+      ? 'Réseau trop lent — réessayez'
+      : 'Erreur : ' + e.message;
+  } finally {
+    hideLoader();
   }
 }
 
@@ -484,7 +529,6 @@ function afficherFiche(psNum, jourId, d) {
       <div class="fiche-card-body">
         <div class="hmep-display">
           <div class="hmep-heure">${d.hmep || '—'}</div>
-          <div class="hmep-label">HEURE D'ARRIVÉE AU POINT</div>
         </div>
         ${d.hmepSect ? `<div class="info-row" style="margin-top:8px">${rowInner('H MeP secteur','<span class="info-val highlight">'+d.hmepSect+'</span>')}</div>` : ''}
       </div>
