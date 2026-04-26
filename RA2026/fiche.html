@@ -176,6 +176,9 @@
     transition: background .15s, border-color .15s;
   }
   .dot.active { background: var(--rouge); border-color: var(--rouge-vif); }
+  .dot.dot-extra { opacity: 0.25; transform: scale(0.75); transition: opacity .2s, transform .2s, background .15s, border-color .15s; }
+  .dot.dot-extra.visible { opacity: 1; transform: scale(1); }
+  .dot.dot-extra.active  { opacity: 1; transform: scale(1); }
   #pin-erreur {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: .9rem; color: #ff6b6b; min-height: 1.2em; margin: 0 0 1rem;
@@ -229,6 +232,10 @@
       <span class="dot" id="d1"></span>
       <span class="dot" id="d2"></span>
       <span class="dot" id="d3"></span>
+      <span class="dot dot-extra" id="d4"></span>
+      <span class="dot dot-extra" id="d5"></span>
+      <span class="dot dot-extra" id="d6"></span>
+      <span class="dot dot-extra" id="d7"></span>
     </div>
     <p id="pin-erreur" aria-live="polite"></p>
     <div id="pin-pad">
@@ -288,7 +295,12 @@
   function _ajouter(c) { if (saisi.length < 8) { saisi += c; _maj(); } }
   function _effacer()  { if (saisi.length) { saisi = saisi.slice(0,-1); erreurEl.textContent=''; _maj(); } }
   function _maj() {
-    dots.forEach(function(d,i){ d.classList.toggle('active', i < saisi.length); });
+    dots.forEach(function(d, i) {
+      d.classList.toggle('active', i < saisi.length);
+      if (d.classList.contains('dot-extra')) {
+        d.classList.toggle('visible', saisi.length > i);
+      }
+    });
     validerBtn.disabled = saisi.length < 4;
   }
   function _soumettre() {
