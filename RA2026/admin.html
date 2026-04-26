@@ -228,6 +228,41 @@ main {
   font-size: 12px; color: var(--texte2); line-height: 1.6;
 }
 .info-box strong { color: var(--texte); }
+
+/* ============================================================
+   SECTION PIN — admin.html
+   ============================================================ */
+.pin-admin-form {
+  display: flex; flex-direction: column; gap: .75rem;
+  max-width: 320px; margin: 1rem 0;
+}
+.pin-admin-label {
+  font-family: 'Barlow Condensed', sans-serif; font-size: .85rem;
+  font-weight: 600; color: rgba(255,255,255,.6);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: -.3rem;
+}
+.pin-admin-input {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 1.6rem;
+  letter-spacing: .4em; padding: .6rem 1rem;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.2);
+  border-radius: 8px; color: #fff; width: 100%; box-sizing: border-box;
+  text-align: center; transition: border-color .2s;
+}
+.pin-admin-input:focus { outline: none; border-color: var(--rouge); }
+.pin-admin-input::placeholder { color: rgba(255,255,255,.2); letter-spacing: .2em; }
+.pin-admin-feedback { font-family: 'Barlow Condensed', sans-serif; font-size: .95rem; min-height: 1.2em; margin-top: .25rem; }
+.pin-admin-feedback.ok  { color: var(--vert); }
+.pin-admin-feedback.err { color: #ff6b6b; }
+.pin-admin-info {
+  margin-top: 1.25rem; border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px; padding: .5rem 1rem;
+  font-family: 'Barlow Condensed', sans-serif; font-size: .9rem;
+  color: rgba(255,255,255,.55); max-width: 480px;
+}
+.pin-admin-info summary { cursor: pointer; color: rgba(255,255,255,.7); user-select: none; font-weight: 600; }
+.pin-admin-info ul { margin: .5rem 0 0 1rem; padding: 0; }
+.pin-admin-info li { margin-bottom: .25rem; }
+.pin-admin-info code { background: rgba(255,255,255,.1); border-radius: 3px; padding: 0 .3em; font-size: .85rem; }
 </style>
 </head>
 <body>
@@ -338,9 +373,43 @@ main {
     </div>
   </div>
 
-</main>
+  <!-- ============================================================
+       SECTION SÉCURITÉ — CODE PIN
+       ============================================================ -->
+  <div class="card" id="cardPin">
+    <div class="card-header">🔒 Sécurité — Code PIN d'accès</div>
+    <div class="card-body">
+      <div class="info-box" style="margin-bottom:16px">
+        Le code PIN est demandé à l'ouverture de <strong>saisie.html</strong> et <strong>fiche.html</strong>.
+        Il est stocké dans l'onglet <strong>REF_CONFIG</strong> de Google Sheets.
+        Valide pour toute la session navigateur (pas de re-saisie tant que l'onglet reste ouvert).
+      </div>
+      <div class="pin-admin-form">
+        <label class="pin-admin-label" for="pin-nouveau">Nouveau code PIN (4 à 8 chiffres)</label>
+        <input type="password" id="pin-nouveau" inputmode="numeric" pattern="[0-9]{4,8}"
+          maxlength="8" placeholder="••••" autocomplete="one-time-code" class="pin-admin-input"/>
+        <label class="pin-admin-label" for="pin-confirm">Confirmer le code</label>
+        <input type="password" id="pin-confirm" inputmode="numeric" pattern="[0-9]{4,8}"
+          maxlength="8" placeholder="••••" autocomplete="one-time-code" class="pin-admin-input"/>
+        <button class="btn btn-primary" id="btnSauverPin" onclick="sauverPin()">
+          🔑 Enregistrer le PIN
+        </button>
+      </div>
+      <p id="pin-admin-msg" class="pin-admin-feedback" aria-live="polite"></p>
+      <details class="pin-admin-info">
+        <summary>ℹ️ Comment ça fonctionne</summary>
+        <ul>
+          <li>Le PIN est stocké dans l'onglet <code>REF_CONFIG</code> de la Google Sheet (clé = PIN).</li>
+          <li>Un PIN correct donne accès pour toute la session navigateur (rechargement = OK, fermeture onglet = re-saisie).</li>
+          <li>Changer le PIN ici invalide les sessions en cours sur les autres pages.</li>
+          <li>Pour désactiver le PIN : supprimer la ligne PIN dans <code>REF_CONFIG</code> directement dans Sheets.</li>
+          <li>Longueur acceptée : 4 à 8 chiffres uniquement.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</main>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
@@ -648,6 +717,57 @@ async function saveConfig() {
     btn.textContent = '💾 Sauvegarder les paramètres';
   }
 }
+
+// ============================================================
+// ADMIN — Sauvegarder le PIN via Apps Script
+// ============================================================
+function sauverPin() {
+  var pin1  = document.getElementById('pin-nouveau').value.trim();
+  var pin2  = document.getElementById('pin-confirm').value.trim();
+  var msgEl = document.getElementById('pin-admin-msg');
+  var btn   = document.getElementById('btnSauverPin');
+
+  msgEl.className = 'pin-admin-feedback';
+  msgEl.textContent = '';
+
+  if (!/^\d{4,8}$/.test(pin1)) {
+    msgEl.textContent = '⚠ Le PIN doit contenir entre 4 et 8 chiffres.';
+    msgEl.className = 'pin-admin-feedback err'; return;
+  }
+  if (pin1 !== pin2) {
+    msgEl.textContent = '⚠ Les deux codes ne correspondent pas.';
+    msgEl.className = 'pin-admin-feedback err';
+    document.getElementById('pin-confirm').focus(); return;
+  }
+
+  btn.disabled = true; btn.textContent = '⏳ Enregistrement…';
+
+  callAS({ action: 'savePin', pin: pin1 }).then(function(data) {
+    btn.disabled = false; btn.textContent = '🔑 Enregistrer le PIN';
+    if (data.ok) {
+      msgEl.textContent = '✅ PIN enregistré avec succès.';
+      msgEl.className = 'pin-admin-feedback ok';
+      document.getElementById('pin-nouveau').value = '';
+      document.getElementById('pin-confirm').value = '';
+      sessionStorage.removeItem('pinOk'); // invalider session courante
+    } else {
+      msgEl.textContent = '❌ Erreur : ' + (data.error || 'inconnue');
+      msgEl.className = 'pin-admin-feedback err';
+    }
+  }).catch(function(e) {
+    btn.disabled = false; btn.textContent = '🔑 Enregistrer le PIN';
+    msgEl.textContent = '❌ Timeout réseau — réessayez.';
+    msgEl.className = 'pin-admin-feedback err';
+  });
+}
+
+// Filtrer : chiffres uniquement dans les champs PIN
+document.addEventListener('DOMContentLoaded', function() {
+  ['pin-nouveau','pin-confirm'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function(){ this.value = this.value.replace(/\D/g,''); });
+  });
+});
 
 // Charger la config au démarrage
 loadConfig();
