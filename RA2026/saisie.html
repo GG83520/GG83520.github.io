@@ -837,9 +837,179 @@
   .fs-empty { color: #aaa; font-style: italic; text-align: center; padding: 20px; }
   .btn-fiche-print { background: #C0392B; color: #fff; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; padding: 10px 24px; border: none; border-radius: 6px; cursor: pointer; margin-top: 16px; }
   .btn-fiche-print:hover { background: #E74C3C; }
+
+  /* ============================================================
+     OVERLAY PIN — saisie.html
+     ============================================================ */
+  #pin-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--dark);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #pin-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px; padding: 2rem 2.5rem 2.5rem;
+    text-align: center; width: min(360px, 92vw);
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+  #pin-logo { margin-bottom: .75rem; }
+  #pin-titre {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.6rem; font-weight: 700; letter-spacing: .08em;
+    color: #fff; margin: 0 0 .25rem; text-transform: uppercase;
+  }
+  #pin-sous-titre {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .95rem; color: rgba(255,255,255,.5); margin: 0 0 1.5rem;
+  }
+  #pin-dots { display: flex; justify-content: center; gap: .75rem; margin-bottom: .75rem; }
+  .dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.35); background: transparent;
+    transition: background .15s, border-color .15s;
+  }
+  .dot.active { background: var(--rouge); border-color: var(--rouge); }
+  #pin-erreur {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .9rem; color: #ff6b6b; min-height: 1.2em; margin: 0 0 1rem;
+  }
+  #pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+  .pin-key {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 1.4rem; font-weight: 600;
+    padding: .75rem; border-radius: 10px; border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.08); color: #fff; cursor: pointer;
+    transition: background .12s, transform .08s;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .pin-key:active:not(:disabled) { background: rgba(255,255,255,.18); transform: scale(.93); }
+  .pin-key:disabled { opacity: .35; cursor: default; }
+  .pin-key--efface { font-size: 1.2rem; }
+  .pin-key--ok {
+    background: var(--rouge); border-color: var(--rouge-vif);
+    font-size: 1.1rem; letter-spacing: .05em;
+  }
+  .pin-key--ok:not(:disabled):hover { background: var(--rouge-vif); }
+  #pin-chargement {
+    font-family: 'Barlow Condensed', sans-serif;
+    color: rgba(255,255,255,.55); font-size: .9rem; margin-top: .75rem;
+  }
+  @keyframes pinShake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+  .pin-shake { animation: pinShake .4s ease; }
 </style>
 </head>
 <body>
+
+<!-- OVERLAY PIN — affiché avant tout contenu si PIN configuré -->
+<div id="pin-overlay">
+  <div id="pin-card">
+    <div id="pin-logo">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="12" fill="var(--rouge)"/>
+        <path d="M24 10L36 17V31L24 38L12 31V17L24 10Z" stroke="white" stroke-width="2.5" fill="none"/>
+        <circle cx="24" cy="24" r="5" fill="white"/>
+      </svg>
+    </div>
+    <p id="pin-titre">ROC D'AZUR 2026</p>
+    <p id="pin-sous-titre">Accès sécurisé — saisissez le code</p>
+    <div id="pin-dots">
+      <span class="dot" id="d0"></span>
+      <span class="dot" id="d1"></span>
+      <span class="dot" id="d2"></span>
+      <span class="dot" id="d3"></span>
+    </div>
+    <p id="pin-erreur" aria-live="polite"></p>
+    <div id="pin-pad">
+      <button class="pin-key" data-v="1">1</button>
+      <button class="pin-key" data-v="2">2</button>
+      <button class="pin-key" data-v="3">3</button>
+      <button class="pin-key" data-v="4">4</button>
+      <button class="pin-key" data-v="5">5</button>
+      <button class="pin-key" data-v="6">6</button>
+      <button class="pin-key" data-v="7">7</button>
+      <button class="pin-key" data-v="8">8</button>
+      <button class="pin-key" data-v="9">9</button>
+      <button class="pin-key pin-key--efface" id="pin-efface" title="Effacer">⌫</button>
+      <button class="pin-key" data-v="0">0</button>
+      <button class="pin-key pin-key--ok" id="pin-valider" title="Valider" disabled>OK</button>
+    </div>
+    <p id="pin-chargement" hidden>Vérification…</p>
+  </div>
+</div>
+
+<!-- Script PIN — s'exécute avant le script principal -->
+<script>
+// ============================================================
+// MODULE PIN — RA2026 — saisie.html
+// ============================================================
+(function () {
+  'use strict';
+  var AS_URL      = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
+  var SESSION_KEY = 'pinOk';
+  var saisi       = '';
+  var overlay     = document.getElementById('pin-overlay');
+  var validerBtn  = document.getElementById('pin-valider');
+  var effaceBtn   = document.getElementById('pin-efface');
+  var erreurEl    = document.getElementById('pin-erreur');
+  var chargEl     = document.getElementById('pin-chargement');
+  var padEl       = document.getElementById('pin-pad');
+  var dots        = document.querySelectorAll('.dot');
+
+  // Session déjà validée → masquer immédiatement
+  if (sessionStorage.getItem(SESSION_KEY) === '1') { _cacher(); return; }
+
+  // Délégation clics pavé numérique
+  padEl.addEventListener('click', function (e) {
+    var btn = e.target.closest('.pin-key');
+    if (!btn || btn.disabled) return;
+    if (btn === effaceBtn)       _effacer();
+    else if (btn === validerBtn) _soumettre();
+    else                         _ajouter(btn.dataset.v);
+  });
+
+  // Clavier physique
+  document.addEventListener('keydown', function (e) {
+    if (overlay.style.display === 'none') return;
+    if (e.key >= '0' && e.key <= '9') _ajouter(e.key);
+    else if (e.key === 'Backspace')    _effacer();
+    else if (e.key === 'Enter')        _soumettre();
+  });
+
+  function _ajouter(c) { if (saisi.length < 8) { saisi += c; _maj(); } }
+  function _effacer()  { if (saisi.length) { saisi = saisi.slice(0,-1); erreurEl.textContent=''; _maj(); } }
+  function _maj() {
+    dots.forEach(function(d,i){ d.classList.toggle('active', i < saisi.length); });
+    validerBtn.disabled = saisi.length < 4;
+  }
+  function _soumettre() {
+    if (saisi.length < 4) return;
+    _setLoading(true);
+    // JSONP direct (callASRetry pas encore déclaré à ce stade du DOM)
+    var cbName = 'pinCb_' + Math.random().toString(36).slice(2);
+    var timer  = setTimeout(function(){ delete window[cbName]; _onError('Timeout réseau — réessayez'); }, 45000);
+    window[cbName] = function(data) {
+      clearTimeout(timer); delete window[cbName]; _setLoading(false);
+      if (data.ok) { sessionStorage.setItem(SESSION_KEY,'1'); _cacher(); }
+      else { erreurEl.textContent='Code incorrect. Réessayez.'; _shake(); saisi=''; _maj(); }
+    };
+    var s = document.createElement('script');
+    s.src = AS_URL + '?action=verifyPin&pin=' + encodeURIComponent(saisi) + '&callback=' + cbName;
+    s.onerror = function(){ clearTimeout(timer); delete window[cbName]; _onError('Erreur réseau'); };
+    document.head.appendChild(s);
+    setTimeout(function(){ try{ s.remove(); }catch(e){} }, 50000);
+  }
+  function _onError(msg){ _setLoading(false); erreurEl.textContent=msg; saisi=''; _maj(); }
+  function _cacher()    { if (overlay) overlay.style.display='none'; }
+  function _setLoading(on){ chargEl.hidden=!on; padEl.querySelectorAll('.pin-key').forEach(function(b){ b.disabled=on; }); }
+  function _shake()     { var c=document.getElementById('pin-card'); c.classList.remove('pin-shake'); void c.offsetWidth; c.classList.add('pin-shake'); }
+})();
+</script>
 
 <!-- HEADER -->
 <header>
