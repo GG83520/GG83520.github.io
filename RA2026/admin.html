@@ -289,7 +289,7 @@ main {
       <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
         <div class="upload-icon">📊</div>
         <div class="upload-title">Glisser-déposer ou cliquer pour sélectionner</div>
-        <div class="upload-sub">Fichier accepté : TableauBenevoles_RA2026_v4.xlsm ou .xlsx</div>
+        <div class="upload-sub">Fichier accepté : TableauBenevoles_RA2026_v5.xlsm ou .xlsx</div>
         <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls">
       </div>
       <div id="fileInfo" style="display:none;margin-top:12px">
@@ -410,9 +410,10 @@ main {
   </div>
 
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3-9qOcnRxX29beMLYWvaelrdwPK1eI4eGJKOfI4MUub0f99Bq1JTUHdtPYl4Qv432/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxn5wLvHEiVHduurSgdUL51dV6KIn18oOYD40jEEN5EOJdxUA5WRApXkwihnrES9wPP/exec';
 const ADMIN_CODE = ''; // laisser vide = pas de protection (à remplir plus tard)
 
 // Colonnes Jx dans le xlsx (noms de colonnes dans ROC2026_Benevoles)
